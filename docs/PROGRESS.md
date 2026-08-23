@@ -14,7 +14,7 @@ Last updated: 2026-08-23 (IST)
 | 6 (6.1 IST util) | DONE | lib/time/ist.ts built, empirically verified correct under both IST-local and TZ=UTC-forced Node processes (Vercel simulation). All required boundary/rollover unit tests pass (`npm test`). Caught and fixed a real month/year-rollover bug during testing. |
 | 6 (6.2 Claude wrapper) | DONE | lib/claude/client.ts built: never throws, returns typed success/failure, logs every call (latency+outcome) to the audit trail. Verified via test with invalid API key — returns success:false, audit row written, no crash. |
 | 6 (decision table) | DONE | lib/actions/{types,decision-table}.ts: full lookup table for every taxonomy label, proactive stop-loss substitution (ESCALATE_TO_HUMAN for high_value, STOP_AND_WRITE_OFF otherwise) before proposing retries, deterministic Rule-5 contact-mismatch demo subset (5 PF records via `id % 17 === 4`). Tested. |
-| 7 | NOT_STARTED | |
+| 7 | DONE | lib/promise-tracker/state-machine.ts: PROMISED->DUE_DATE_PENDING->{FULFILLED,BROKEN}, fixed documented fulfillment probabilities per payment_history_pattern (0.85/0.6/0.3), broken promises revoke discount eligibility + force ESCALATE_TO_HUMAN on subsequent actions. Verified against real seed data: both outcomes reached, suppression on later processing confirmed. |
 | 8 | NOT_STARTED | |
 | 9 | NOT_STARTED | |
 | 10 | NOT_STARTED | |
