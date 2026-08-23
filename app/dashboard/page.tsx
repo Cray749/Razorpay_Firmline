@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { computeDashboardMetrics, type AuditDerivedMetrics } from "@/lib/metrics/dashboard";
 import { RuleFireChart } from "@/app/_components/RuleFireChart";
+import { LoadingState } from "@/app/_components/LoadingState";
 import diagnosisAccuracy from "@/docs/metrics/diagnosis_accuracy.json";
 import type { BatchCaseResult } from "@/lib/batch/run-batch";
 
@@ -24,7 +25,7 @@ export default function DashboardPage() {
       .then(setData);
   }, []);
 
-  if (!data) return null;
+  if (!data) return <LoadingState label="Loading the latest batch run…" />;
 
   if (!data.hasRun) {
     return (

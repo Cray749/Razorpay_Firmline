@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { deriveCaseStatus } from "@/lib/ui/case-status";
 import { formatIST } from "@/lib/time/ist";
+import { LoadingState } from "@/app/_components/LoadingState";
 import type { BatchCaseResult } from "@/lib/batch/run-batch";
 
 type BatchResponse = { hasRun: false } | { hasRun: true; createdAt: string; cases: BatchCaseResult[] };
@@ -17,7 +18,7 @@ export default function CounterfactualPage() {
       .then(setData);
   }, []);
 
-  if (!data) return null;
+  if (!data) return <LoadingState label="Loading the latest batch run…" />;
 
   if (!data.hasRun) {
     return (
