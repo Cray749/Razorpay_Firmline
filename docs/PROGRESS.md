@@ -13,7 +13,7 @@ Last updated: 2026-08-23 (IST)
 | 5 | DONE | Rule-based classifiers (PF/CA/B2B) + Claude fallback (lib/classifier/*, lib/claude/diagnose-fallback.ts). docs/metrics/diagnosis_accuracy.json has real computed precision/recall (97.9% overall on rule-based-only pass, since ANTHROPIC_API_KEY isn't configured yet — Claude fallback degraded gracefully as designed, 0 crashes, 9 records correctly flagged needs_human_review). Spot-checked 5 records by hand against true_root_cause. **TODO before final README numbers**: re-run `npm run measure:diagnosis` once Anthropic credentials land, to get the true blended (rule+Claude) accuracy. |
 | 6 (6.1 IST util) | DONE | lib/time/ist.ts built, empirically verified correct under both IST-local and TZ=UTC-forced Node processes (Vercel simulation). All required boundary/rollover unit tests pass (`npm test`). Caught and fixed a real month/year-rollover bug during testing. |
 | 6 (6.2 Claude wrapper) | DONE | lib/claude/client.ts built: never throws, returns typed success/failure, logs every call (latency+outcome) to the audit trail. Verified via test with invalid API key — returns success:false, audit row written, no crash. |
-| 6 (decision table) | NOT_STARTED | |
+| 6 (decision table) | DONE | lib/actions/{types,decision-table}.ts: full lookup table for every taxonomy label, proactive stop-loss substitution (ESCALATE_TO_HUMAN for high_value, STOP_AND_WRITE_OFF otherwise) before proposing retries, deterministic Rule-5 contact-mismatch demo subset (5 PF records via `id % 17 === 4`). Tested. |
 | 7 | NOT_STARTED | |
 | 8 | NOT_STARTED | |
 | 9 | NOT_STARTED | |
