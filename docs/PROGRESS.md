@@ -22,11 +22,11 @@ Last updated: 2026-08-23 (IST)
 | 12 | DONE | app/counterfactual/page.tsx: naive-vs-Firmline comparison from the naiveActions summary lib/batch/run-batch.ts carries per case. Verified live: 112/200 cases diverge, including a real Rule 9 catch (a naive "URGENT...legal action..." message blocked, shown side-by-side with what the naive agent would have sent). |
 | 13 | DONE | scripts/verify-checklist.ts: automates all 9 checklist items against a real, fresh batch run (`npm run verify:checklist`). All 9/9 pass: every rule fires (incl. Rule 9 via tone-check), Rule 6+8 reschedule verified inside both windows, circuit breaker exactly 1 trip event for 9 paused records, stop-loss fires, a promise reaches BROKEN, a disputed case has zero dispatch, a bounced case attempts no secondary contact, diagnosis_accuracy.json has real numbers, dashboard has no hardcoded literals. |
 | 14 | DONE | Loading skeletons (dashboard/counterfactual), global focus-visible outlines, reduced-motion guards on the stamp-land and skeleton-shimmer animations, mobile viewport checked (375px, no horizontal overflow). Empty states already existed for dashboard/counterfactual/case-not-found from earlier phases. `npm run build` succeeds cleanly. |
-| 15 | NOT_STARTED | |
-| 16 | NOT_STARTED | |
-| 17 | NOT_STARTED | |
-| 18 | NOT_STARTED | |
-| 19 | NOT_STARTED | |
+| 15 | NOT_STARTED | Deployment — blocked on the human's GitHub repo + Vercel connection + real env vars (Phase 0 dependency, still open). Everything else is ready to deploy the moment those land: `npm run build` succeeds, seed script loads Supabase when configured, all graceful-degradation paths tested. |
+| 16 | DONE | README's "What we measured" table filled with real numbers (scripts/print-readme-numbers.ts), project structure section rewritten to match what was actually built, "Running it locally" and "What's not built yet" sections brought up to date and made honest about what's tested-via-fallback vs tested-live. |
+| 17 | DONE | docs/architecture.md: data-flow diagram, schema (seed + Postgres + in-memory-fallback limits, including the Route-Handler-vs-Server-Component module isolation bug), all 13 rules precisely specified with the reasoning behind the Rule 6/7/8 action-type scoping, both real bugs named and explained, explicit "what was left out of scope and why." |
+| 18 | DONE | docs/demo-video-script.md: 5-minute timed script using this build's real case IDs and numbers (b2b_0001 as the Rule 9 demonstration case, the counterfactual view, real dashboard figures). |
+| 19 | NOT_STARTED | Final submission checklist — pending Phase 15 (deployment) and Phase 18's actual video recording (a human task). |
 
 ## Known blockers
 See docs/BLOCKERS.md
