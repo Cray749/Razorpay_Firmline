@@ -12,9 +12,9 @@ const RULE_LABELS: Record<string, string> = {
   "pre-debit-notice": "R6 Pre-debit notice",
   "one-charge-per-day": "R7 One charge/day",
   "npci-window": "R8 NPCI window",
-  "discount-fairness": "R10 Discount fairness",
+  "discount-fairness": "R10 Discount",
   "stop-loss": "R11 Stop-loss",
-  "bounce-suppression": "R12 Bounce suppression",
+  "bounce-suppression": "R12 Bounce",
 };
 
 export function RuleFireChart({ counts }: { counts: Record<string, number> }) {
@@ -25,7 +25,7 @@ export function RuleFireChart({ counts }: { counts: Record<string, number> }) {
       <BarChart data={data} layout="vertical" margin={{ left: 24, right: 24 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" horizontal={false} />
         <XAxis type="number" stroke="var(--navy-muted)" fontSize={12} />
-        <YAxis type="category" dataKey="label" stroke="var(--navy-muted)" fontSize={12} width={140} />
+        <YAxis type="category" dataKey="label" stroke="var(--navy-muted)" fontSize={12} width={150} interval={0} />
         <Tooltip
           contentStyle={{ background: "var(--ledger-paper)", border: "1px solid var(--ledger-line)", color: "var(--ink-text)", borderRadius: 6 }}
         />

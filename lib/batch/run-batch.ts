@@ -19,11 +19,23 @@ import { applyPromiseTrackerOverrides, runPromiseLifecycle } from "@/lib/promise
 import { buildCustomerContext, resetContextBackfillForTests, type ContextBaselineInput } from "@/lib/rules/context";
 import { runComplianceGate, type GateResult } from "@/lib/rules/gate";
 import { executeAllowedAction, type ExecutionOutcome } from "@/lib/execution/execute";
-import { nextValidComplianceSlot } from "@/lib/time/ist";
+import { nextValidComplianceSlot, IST_TIME_ZONE } from "@/lib/time/ist";
 import { logAuditEvent, clearAuditLogForNewBatchRun } from "@/lib/audit/log";
 import { resetPromiseTrackerForTests } from "@/lib/promise-tracker/state-machine";
 import { createRng } from "@/data/seed/rng";
 import { isToneDemoCase } from "@/data/seed/constants";
+import { fromZonedTime } from "date-fns-tz";
+
+// B2BReceivable has no per-record timestamp field (only invoice_due_date and
+// days_overdue), so its proposed contact time needs a "now" reference the
+// way PF/CA get one from attempted_at/abandoned_at. Using real wall-clock
+// Date.now() here would make every B2B outcome depend on what time of day
+// someone happens to click "Run the batch" (e.g. running it at 8 PM would
+// fail Rule 1 for literally every B2B action) — a real bug caught by
+// browser-testing at 7:45 PM IST, where every B2B case was blocked for that
+// reason alone. A fixed IST anchor, safely inside the contact window, keeps
+// the batch fully reproducible regardless of real run time.
+const DEFAULT_B2B_NOW = fromZonedTime("2026-08-12T10:00:00", IST_TIME_ZONE);
 
 export type BatchActionOutcome = {
   proposedAction: ProposedAction;
@@ -243,7 +255,7 @@ async function processB2BReceivable(r: B2BReceivable, now: Date, rng: ReturnType
   };
 }
 
-export async function runBatchPipeline(batch: SeedBatch, now: Date = new Date()): Promise<BatchResult> {
+export async function runBatchPipeline(batch: SeedBatch, now: Date = DEFAULT_B2B_NOW): Promise<BatchResult> {
   // Every batch run starts from a clean slate: the audit log, the seed-baseline
   // backfill tracking, and promise-tracker state must not carry over from a
   // previous run, or a re-run would see its own prior run's real executed

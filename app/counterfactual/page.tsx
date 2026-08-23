@@ -51,7 +51,9 @@ export default function CounterfactualPage() {
 
       <div className="mt-6 flex flex-col gap-3">
         {divergent.map((c) => {
-          const blocked = c.actions.filter((a) => !a.isAutoInsertedNotice && !a.gateResult.allowed);
+          const blocked = c.actions.filter(
+            (a) => !a.isAutoInsertedNotice && (!a.gateResult.allowed || (a.execution?.message && !a.execution.message.toneCheckAllowed))
+          );
           return (
             <Link key={c.caseId} href={`/case/${c.caseId}`} className="ledger-card grid grid-cols-1 gap-4 rounded-md p-4 hover:brightness-95 sm:grid-cols-2">
               <div>
@@ -75,7 +77,10 @@ export default function CounterfactualPage() {
                   {blocked.map((a, i) => (
                     <li key={i}>
                       <span className="font-semibold">{a.proposedAction.actionType}</span> blocked:{" "}
-                      {a.gateResult.blockedBy.map((b) => b.ruleName).join(", ")}.{" "}
+                      {a.gateResult.allowed
+                        ? "Rule 9 (tone/content check on the generated message)"
+                        : a.gateResult.blockedBy.map((b) => b.ruleName).join(", ")}
+                      .{" "}
                       {a.gateResult.rescheduleTo && (
                         <>
                           Rescheduled to <span className="ledger-numerals">{formatIST(new Date(a.gateResult.rescheduleTo))}</span>.
