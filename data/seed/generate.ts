@@ -22,9 +22,9 @@ import type {
 } from "./schema";
 import { SEED_SCHEMA_VERSION } from "./schema";
 import { getSupabaseClient } from "../../lib/supabase/client";
+import { SEED_VALUE, SEED_VERSION_LABEL } from "./constants";
 
-export const SEED_VALUE = 20260810; // fixed seed — do not change without bumping the seed version below
-export const SEED_VERSION_LABEL = "seed-v1";
+export { SEED_VALUE, SEED_VERSION_LABEL };
 
 // All record timestamps are computed relative to this fixed anchor ("now" for
 // the synthetic world), not actual wall-clock time, so the batch is fully
@@ -326,17 +326,14 @@ export function isToneDemoCase(record: Pick<B2BReceivable, "invoice_amount_inr" 
   return record.invoice_amount_inr >= TONE_DEMO_MIN_AMOUNT_INR && record.days_overdue >= TONE_DEMO_MIN_DAYS_OVERDUE;
 }
 
-function classifyB2bGroundTruth(
-  pattern: B2BReceivable["payment_history_pattern"],
-  disputeFlag: boolean,
-  daysOverdue: number,
-  rng: ReturnType<typeof createRng>
-): string {
+function classifyB2bGroundTruth(pattern: B2BReceivable["payment_history_pattern"], disputeFlag: boolean): string {
+  // Mirrors lib/classifier/b2b-receivables.ts exactly. Exhaustive over
+  // (dispute_flag, payment_history_pattern) — no random fallback needed, since
+  // payment_history_pattern only ever takes these three values.
   if (disputeFlag) return "INVOICE_DISPUTE";
   if (pattern === "frequently_late") return "CASH_FLOW_DELAY"; // the deliberately-ambiguous pair the manual calls out
-  if (pattern === "first_invoice" && daysOverdue < 15) return "OVERSIGHT";
-  if (pattern === "always_on_time") return "APPROVAL_CHAIN_DELAY";
-  return rng.pick(["CASH_FLOW_DELAY", "OVERSIGHT", "APPROVAL_CHAIN_DELAY"]);
+  if (pattern === "first_invoice") return "OVERSIGHT";
+  return "APPROVAL_CHAIN_DELAY"; // always_on_time
 }
 
 function generateB2BReceivables(rng: ReturnType<typeof createRng>): B2BReceivable[] {
@@ -376,7 +373,7 @@ function generateB2BReceivables(rng: ReturnType<typeof createRng>): B2BReceivabl
       payment_history_pattern: pattern,
       dispute_flag: isDisputed,
       is_opted_out: optOutIdxs.has(idx0),
-      true_root_cause: classifyB2bGroundTruth(pattern, isDisputed, daysOverdue, rng),
+      true_root_cause: classifyB2bGroundTruth(pattern, isDisputed),
     });
   }
   return records;

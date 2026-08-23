@@ -1,0 +1,152 @@
+{
+  "seed_version": "seed-v1",
+  "measured_at": "2026-08-23T11:45:36.087Z",
+  "total_records_diagnosed": 191,
+  "circuit_breaker_excluded_count": 9,
+  "overall_accuracy": 0.979,
+  "claude_fallback": {
+    "attempts": 9,
+    "succeeded": 0,
+    "failed_and_flagged_for_human_review": 9,
+    "note": "ANTHROPIC_API_KEY was not configured when this was measured — every fallback attempt degraded gracefully to the rule-based guess + needs_human_review, per lib/claude/client.ts's contract. Re-run `npm run measure:diagnosis` once credentials are set for the true blended accuracy."
+  },
+  "needs_human_review_count": 9,
+  "per_category": {
+    "APPROVAL_CHAIN_DELAY": {
+      "precision": 1,
+      "recall": 1,
+      "support": 17,
+      "truePositives": 17,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "BANK_RISK_DECLINE": {
+      "precision": 1,
+      "recall": 1,
+      "support": 4,
+      "truePositives": 4,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "CASH_FLOW_DELAY": {
+      "precision": 1,
+      "recall": 1,
+      "support": 19,
+      "truePositives": 19,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "COMPARISON_SHOPPING": {
+      "precision": null,
+      "recall": 0,
+      "support": 2,
+      "truePositives": 0,
+      "falsePositives": 0,
+      "falseNegatives": 2
+    },
+    "GATEWAY_TECHNICAL_ERROR": {
+      "precision": 1,
+      "recall": 1,
+      "support": 4,
+      "truePositives": 4,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "INCORRECT_CREDENTIALS": {
+      "precision": 1,
+      "recall": 1,
+      "support": 3,
+      "truePositives": 3,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "INSUFFICIENT_BALANCE": {
+      "precision": 1,
+      "recall": 1,
+      "support": 22,
+      "truePositives": 22,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "INVOICE_DISPUTE": {
+      "precision": 1,
+      "recall": 1,
+      "support": 6,
+      "truePositives": 6,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "MANDATE_EXPIRED_OR_REVOKED": {
+      "precision": 1,
+      "recall": 1,
+      "support": 1,
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "MANDATE_TIMING_VIOLATION": {
+      "precision": 1,
+      "recall": 1,
+      "support": 30,
+      "truePositives": 30,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "NEEDS_HUMAN_REVIEW": {
+      "precision": 1,
+      "recall": 1,
+      "support": 9,
+      "truePositives": 9,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "OVERSIGHT": {
+      "precision": 1,
+      "recall": 1,
+      "support": 16,
+      "truePositives": 16,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "PAYMENT_METHOD_FRICTION": {
+      "precision": 1,
+      "recall": 1,
+      "support": 1,
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "PRICE_SENSITIVITY": {
+      "precision": 0.833,
+      "recall": 1,
+      "support": 20,
+      "truePositives": 20,
+      "falsePositives": 4,
+      "falseNegatives": 0
+    },
+    "RAIL_OUTAGE": {
+      "precision": 1,
+      "recall": 1,
+      "support": 2,
+      "truePositives": 2,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "TECHNICAL_ERROR": {
+      "precision": 1,
+      "recall": 1,
+      "support": 32,
+      "truePositives": 32,
+      "falsePositives": 0,
+      "falseNegatives": 0
+    },
+    "TRUST_SIGNAL_GAP": {
+      "precision": 1,
+      "recall": 0.333,
+      "support": 3,
+      "truePositives": 1,
+      "falsePositives": 0,
+      "falseNegatives": 2
+    }
+  }
+}
