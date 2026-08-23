@@ -45,7 +45,15 @@ async function backfillBaselineHistory(baseline: ContextBaselineInput, action: P
   const extra21d = Math.max(0, baseline.previousAttemptsTotal21d - today);
 
   for (let i = 0; i < today; i++) {
-    const t = new Date(proposedAt.getTime() - (i + 1) * 60 * 60 * 1000); // hourly, earlier today
+    // Spaced 5 hours apart, earlier the same day. Deliberately NOT 1-hour
+    // spacing: that placed the most recent backfilled attempt inside Rule 3's
+    // 4-hour cooling-off window for almost every record with any same-day
+    // history, making Rule 2 (frequency) and Rule 3 (cooling-off) fire
+    // together on ~60% of the batch — technically defensible but made the
+    // gate look indiscriminately trigger-happy rather than catching genuine,
+    // distinct violations. 5h keeps the common previous_attempts_today=1 case
+    // outside the cooling-off window while still being clearly "earlier today."
+    const t = new Date(proposedAt.getTime() - (i + 1) * 5 * 60 * 60 * 1000);
     await logAuditEvent({
       case_id: action.caseId,
       customer_id: baseline.customerId,

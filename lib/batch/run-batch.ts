@@ -16,11 +16,12 @@ import { runCircuitBreaker, type CircuitBreakerOutcome } from "@/lib/circuit-bre
 import { diagnosePaymentFailure, diagnoseCheckoutAbandonment, diagnoseB2BReceivable } from "@/lib/classifier/claude-fallback";
 import { decidePaymentFailureActions, decideCheckoutAbandonmentActions, decideB2BReceivableActions } from "@/lib/actions/decision-table";
 import { applyPromiseTrackerOverrides, runPromiseLifecycle } from "@/lib/promise-tracker/state-machine";
-import { buildCustomerContext, type ContextBaselineInput } from "@/lib/rules/context";
+import { buildCustomerContext, resetContextBackfillForTests, type ContextBaselineInput } from "@/lib/rules/context";
 import { runComplianceGate, type GateResult } from "@/lib/rules/gate";
 import { executeAllowedAction, type ExecutionOutcome } from "@/lib/execution/execute";
 import { nextValidComplianceSlot } from "@/lib/time/ist";
-import { logAuditEvent } from "@/lib/audit/log";
+import { logAuditEvent, clearAuditLogForNewBatchRun } from "@/lib/audit/log";
+import { resetPromiseTrackerForTests } from "@/lib/promise-tracker/state-machine";
 import { createRng } from "@/data/seed/rng";
 import { isToneDemoCase } from "@/data/seed/constants";
 
@@ -30,6 +31,17 @@ export type BatchActionOutcome = {
   execution?: ExecutionOutcome;
   /** Present only for the notice action auto-inserted by a Rule 6 reschedule. */
   isAutoInsertedNotice?: boolean;
+};
+
+/** Phase 12's counterfactual: what a version of Firmline with no compliance
+ * gate would have done. Definitionally "always allowed, fires at whatever
+ * time the Decision layer originally proposed, no reschedule, no Rule 9
+ * tone check" — cheap to derive from the same decision-layer output rather
+ * than re-running a real second gate pass. */
+export type NaiveActionSummary = {
+  actionType: string;
+  proposedAt: string;
+  discountPercent?: number;
 };
 
 export type BatchCaseResult = {
@@ -42,7 +54,12 @@ export type BatchCaseResult = {
   needsHumanReview: boolean;
   pausedByCircuitBreaker: boolean;
   actions: BatchActionOutcome[];
+  naiveActions: NaiveActionSummary[];
 };
+
+function toNaiveSummaries(actions: ProposedAction[]): NaiveActionSummary[] {
+  return actions.map((a) => ({ actionType: a.actionType, proposedAt: a.proposedAt.toISOString(), discountPercent: a.discountPercent }));
+}
 
 export type BatchResult = {
   circuitBreaker: CircuitBreakerOutcome;
@@ -150,6 +167,7 @@ async function processPaymentFailure(r: PaymentFailure): Promise<BatchCaseResult
     needsHumanReview: !!diag.needsHumanReview,
     pausedByCircuitBreaker: false,
     actions: outcomes,
+    naiveActions: toNaiveSummaries(actions),
   };
 }
 
@@ -182,6 +200,7 @@ async function processCheckoutAbandonment(r: CheckoutAbandonment): Promise<Batch
     needsHumanReview: !!diag.needsHumanReview,
     pausedByCircuitBreaker: false,
     actions: outcomes,
+    naiveActions: toNaiveSummaries(actions),
   };
 }
 
@@ -220,10 +239,20 @@ async function processB2BReceivable(r: B2BReceivable, now: Date, rng: ReturnType
     needsHumanReview: !!diag.needsHumanReview,
     pausedByCircuitBreaker: false,
     actions: outcomes,
+    naiveActions: toNaiveSummaries(actions),
   };
 }
 
 export async function runBatchPipeline(batch: SeedBatch, now: Date = new Date()): Promise<BatchResult> {
+  // Every batch run starts from a clean slate: the audit log, the seed-baseline
+  // backfill tracking, and promise-tracker state must not carry over from a
+  // previous run, or a re-run would see its own prior run's real executed
+  // events as "recent history" and cascade into spurious compliance blocks —
+  // a real bug caught by manually re-running the batch twice in a row.
+  await clearAuditLogForNewBatchRun();
+  resetContextBackfillForTests();
+  resetPromiseTrackerForTests();
+
   const circuitBreaker = await runCircuitBreaker(batch.payment_failures);
   const rng = createRng(PROMISE_TRACKER_RNG_SEED);
   const cases: BatchCaseResult[] = [];
@@ -240,6 +269,7 @@ export async function runBatchPipeline(batch: SeedBatch, now: Date = new Date())
         needsHumanReview: false,
         pausedByCircuitBreaker: true,
         actions: [],
+        naiveActions: [],
       });
       continue;
     }

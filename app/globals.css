@@ -1,26 +1,106 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink-navy: #0f1826;
+  --ink-navy-deep: #0a121e;
+  --ink-navy-raised: #16223590;
+  --ledger-paper: #f6f0e2;
+  --ledger-paper-raised: #fbf7ec;
+  --ledger-line: #ddd3b8;
+  --ink-text: #1d2436;
+  --paper-muted: #746c58;
+  --navy-text: #e9e6dc;
+  --navy-muted: #9aa4b8;
+  --stamp-green: #4c7a5a;
+  --stamp-rust: #a8493c;
+  --brass-gold: #c69a4b;
+  --border-soft: #2a3650;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ink-navy: var(--ink-navy);
+  --color-ink-navy-deep: var(--ink-navy-deep);
+  --color-ledger-paper: var(--ledger-paper);
+  --color-ledger-paper-raised: var(--ledger-paper-raised);
+  --color-ledger-line: var(--ledger-line);
+  --color-ink-text: var(--ink-text);
+  --color-paper-muted: var(--paper-muted);
+  --color-navy-text: var(--navy-text);
+  --color-navy-muted: var(--navy-muted);
+  --color-stamp-green: var(--stamp-green);
+  --color-stamp-rust: var(--stamp-rust);
+  --color-brass-gold: var(--brass-gold);
+  --color-border-soft: var(--border-soft);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-ledger-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink-navy);
+  color: var(--navy-text);
+}
+
+.ledger-numerals {
+  font-family: var(--font-ledger-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.ledger-card {
+  background: var(--ledger-paper);
+  color: var(--ink-text);
+  border: 1px solid var(--ledger-line);
+}
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 2px solid currentColor;
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-ledger-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: rotate(-3deg);
+  opacity: 0.92;
+}
+
+.stamp-cleared {
+  color: var(--stamp-green);
+}
+
+.stamp-blocked {
+  color: var(--stamp-rust);
+}
+
+@keyframes stamp-land {
+  0% {
+    opacity: 0;
+    transform: rotate(-3deg) scale(2.2);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(-3deg) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-3deg) scale(1);
+  }
+}
+
+.stamp-animate {
+  animation: stamp-land 320ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-animate {
+    animation: none;
+  }
+}
+
+* {
+  scrollbar-color: var(--border-soft) transparent;
 }

@@ -137,3 +137,65 @@ export function resetAuditLogForTests(): void {
   memoryLog.length = 0;
   seq = 0;
 }
+
+/**
+ * Clears the audit trail before a fresh batch run — both the in-process
+ * mirror (which queryAuditLogSync always reads from, Supabase-configured or
+ * not) and, if configured, the persisted Supabase table. Without this, a
+ * second batch run would see the first run's real executed contact_attempt
+ * events (logged at the same deterministic proposedAt timestamps, since the
+ * seed data is fixed) as "already contacted just now," cascading into
+ * spurious Rule 2/3 blocks that have nothing to do with this run's own data.
+ * audit_log represents the trail for the CURRENT batch run, same as
+ * case_results — not an unbounded cross-run history.
+ */
+export async function clearAuditLogForNewBatchRun(): Promise<void> {
+  resetAuditLogForTests();
+  const client = getSupabaseClient();
+  if (client) {
+    const { error } = await client.from("audit_log").delete().neq("id", "__never__");
+    if (error) console.error("[audit] failed to clear audit_log before new batch run", error.message);
+  }
+}
+
+/** Async read for UI pages (case detail, dashboard): prefers Supabase (so a
+ * page load reflects the persisted batch run regardless of which server
+ * process wrote it), falls back to the in-process mirror when Supabase isn't
+ * configured — same "offline mode is just the absence of configuration"
+ * pattern as lib/supabase/client.ts. */
+export async function queryAuditLogForCase(caseId: string): Promise<AuditRow[]> {
+  const client = getSupabaseClient();
+  if (client) {
+    const { data, error } = await client.from("audit_log").select("*").eq("case_id", caseId).order("timestamp", { ascending: true });
+    if (error) {
+      console.error("[audit] failed to read audit_log for case", caseId, error.message);
+    } else if (data) {
+      return data.map((row) => ({
+        id: row.id,
+        case_id: row.case_id,
+        customer_id: row.customer_id,
+        mandate_id: row.mandate_id,
+        channel: row.channel,
+        timestamp: row.timestamp,
+        layer: row.layer,
+        event_type: row.event_type,
+        detail_json: row.detail_json ?? {},
+        reasoning_text: row.reasoning_text,
+      }));
+    }
+  }
+  return memoryLog.filter((r) => r.case_id === caseId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+export async function queryAllAuditLog(): Promise<AuditRow[]> {
+  const client = getSupabaseClient();
+  if (client) {
+    const { data, error } = await client.from("audit_log").select("*").order("timestamp", { ascending: true });
+    if (error) {
+      console.error("[audit] failed to read full audit_log", error.message);
+    } else if (data) {
+      return data as AuditRow[];
+    }
+  }
+  return memoryLog.slice();
+}
