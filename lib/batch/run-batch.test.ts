@@ -65,6 +65,27 @@ export default async function run(): Promise<void> {
   const totalRows = getAllAuditRowsSync().length;
   check(totalRows > 0, "the batch run must produce audit log rows");
 
+  // Execution layer checks (Phase 9): every allowed, message-bearing action
+  // produces a rendered message; since ANTHROPIC_API_KEY isn't configured in
+  // this environment, it should gracefully degrade to the fallback template
+  // rather than crash or skip the record.
+  const allExecutedMessages = result.cases.flatMap((c) => c.actions.map((a) => a.execution?.message).filter((m): m is NonNullable<typeof m> => !!m));
+  check(allExecutedMessages.length > 0, "at least one action must have produced a message");
+  check(
+    allExecutedMessages.every((m) => m.source === "fallback_template" || m.source === "deliberate_naive_demo"),
+    "with no ANTHROPIC_API_KEY configured, every message must come from the fallback or deliberate-demo template, never silently blank"
+  );
+
+  // The deliberate Rule-9 tone-demo subset (naive template) must actually get
+  // caught and blocked from dispatch — proving Rule 9 has real content to
+  // catch in this batch run, not just in isolated unit tests.
+  const naiveDemoMessages = allExecutedMessages.filter((m) => m.source === "deliberate_naive_demo");
+  check(naiveDemoMessages.length > 0, "at least one deliberate tone-demo case must have been executed");
+  check(
+    naiveDemoMessages.every((m) => !m.toneCheckAllowed),
+    "every deliberate naive-template message must be blocked by the Rule 9 tone check"
+  );
+
   console.log(`  PASS  gate ran against ${result.cases.length} real cases, all 12 non-tone rules fired at least once, Rule 6+8 interaction traced and verified`);
   console.log("run-batch.test.ts: all assertions passed");
 }

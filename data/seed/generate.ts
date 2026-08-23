@@ -22,7 +22,7 @@ import type {
 } from "./schema";
 import { SEED_SCHEMA_VERSION } from "./schema";
 import { getSupabaseClient } from "../../lib/supabase/client";
-import { SEED_VALUE, SEED_VERSION_LABEL } from "./constants";
+import { SEED_VALUE, SEED_VERSION_LABEL, TONE_DEMO_MIN_AMOUNT_INR, TONE_DEMO_MIN_DAYS_OVERDUE, isToneDemoCase } from "./constants";
 
 export { SEED_VALUE, SEED_VERSION_LABEL };
 
@@ -314,17 +314,6 @@ function generateCheckoutAbandonments(rng: ReturnType<typeof createRng>): Checko
 // ---------------------------------------------------------------------------
 const B2B_TOTAL = 58;
 const B2B_FREQUENTLY_LATE_NO_DISPUTE = 10; // Rule: diagnosis ambiguity — must map to CASH_FLOW_DELAY, not INVOICE_DISPUTE
-
-// Thresholds for the deliberate Rule-9 (tone/content) demonstration subset —
-// see lib/claude/generate-message.ts, which routes records matching this exact
-// predicate through a plain non-personalized template rather than Claude, so
-// Rule 9 has real, deterministic content to catch in the batch run regardless
-// of Claude's (compliant-by-instruction) stochastic output.
-export const TONE_DEMO_MIN_AMOUNT_INR = 500000;
-export const TONE_DEMO_MIN_DAYS_OVERDUE = 90;
-export function isToneDemoCase(record: Pick<B2BReceivable, "invoice_amount_inr" | "days_overdue">): boolean {
-  return record.invoice_amount_inr >= TONE_DEMO_MIN_AMOUNT_INR && record.days_overdue >= TONE_DEMO_MIN_DAYS_OVERDUE;
-}
 
 function classifyB2bGroundTruth(pattern: B2BReceivable["payment_history_pattern"], disputeFlag: boolean): string {
   // Mirrors lib/classifier/b2b-receivables.ts exactly. Exhaustive over

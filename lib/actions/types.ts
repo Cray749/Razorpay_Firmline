@@ -17,10 +17,18 @@ export const ACTION_TYPES = [
 ] as const;
 export type ActionType = (typeof ACTION_TYPES)[number];
 
-/** Actions that involve retrying a mandate charge — these are the ones the
- * Decision layer must proactively stop-loss-check before proposing (Phase 6),
- * and the ones Rule 6 (pre-debit notice) and Rule 8 (NPCI window) apply to. */
-export const MANDATE_RETRY_ACTION_TYPES: ActionType[] = ["SCHEDULE_COMPLIANT_RETRY", "SEND_PRE_DEBIT_NOTICE_THEN_RETRY"];
+/** Actions that represent an actual mandate DEBIT ATTEMPT — these are the
+ * ones the Decision layer must proactively stop-loss-check before proposing
+ * (Phase 6), and the ones Rule 6 (pre-debit notice), Rule 7 (one charge per
+ * day) and Rule 8 (NPCI window) apply to. Deliberately does NOT include
+ * SEND_PRE_DEBIT_NOTICE_THEN_RETRY: that action type is only ever produced by
+ * Rule 6's own auto-insert (lib/rules/06-pre-debit-notice.ts) and represents
+ * sending the notice itself, not a debit attempt — applying Rule 6/7/8 to it
+ * would be both circular (the notice needing a notice) and semantically wrong
+ * (NPCI peak/non-peak windows govern debit timing, not a plain message). It
+ * still goes through Rule 1 (contact window) and the rest of the gate like
+ * any other outbound contact. */
+export const MANDATE_RETRY_ACTION_TYPES: ActionType[] = ["SCHEDULE_COMPLIANT_RETRY"];
 
 export type RecordType = "payment_failure" | "checkout_abandonment" | "b2b_receivable";
 export type Channel = "whatsapp" | "sms" | "email" | "voice";

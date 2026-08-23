@@ -1,11 +1,16 @@
 // lib/batch/run-batch.ts — the core pipeline: circuit breaker -> diagnosis ->
-// decision -> promise tracker -> compliance gate, for every record in a
-// batch. This is what app/api/batch/route.ts calls. Execution (message
-// generation, dispatch, Rule 9) is layered on top in Phase 9 — this module
-// stops at "here is the gate's verdict for every proposed action," which is
-// also exactly what Phase 8's own Definition of Done needs to verify against
-// the real seeded batch.
-import type { SeedBatch, PaymentFailure, CheckoutAbandonment, B2BReceivable } from "@/data/seed/schema";
+// decision -> promise tracker -> compliance gate -> execution, for every
+// record in a batch. This is what app/api/batch/route.ts calls.
+//
+// Rule 6's special case (missing pre-debit notice) is handled here, not in
+// the gate itself: when the gate blocks an action WITH a rescheduleTo, this
+// orchestrator builds a second action — sending the notice — gates THAT
+// action too (it still owes Rule 1/2/3/4/5/12/13, just not Rule 6/7/8, which
+// only apply to actual debit attempts), executes it if allowed, and leaves
+// the original retry logged as rescheduled rather than executed this run
+// (realistically, a retry that needs 24h notice can't happen in the same
+// pass — it belongs to a future batch run once the notice window has passed).
+import type { SeedBatch, PaymentFailure, CheckoutAbandonment, B2BReceivable, PreferredLanguage } from "@/data/seed/schema";
 import type { ProposedAction, RecordType } from "@/lib/actions/types";
 import { runCircuitBreaker, type CircuitBreakerOutcome } from "@/lib/circuit-breaker/index";
 import { diagnosePaymentFailure, diagnoseCheckoutAbandonment, diagnoseB2BReceivable } from "@/lib/classifier/claude-fallback";
@@ -13,11 +18,18 @@ import { decidePaymentFailureActions, decideCheckoutAbandonmentActions, decideB2
 import { applyPromiseTrackerOverrides, runPromiseLifecycle } from "@/lib/promise-tracker/state-machine";
 import { buildCustomerContext, type ContextBaselineInput } from "@/lib/rules/context";
 import { runComplianceGate, type GateResult } from "@/lib/rules/gate";
+import { executeAllowedAction, type ExecutionOutcome } from "@/lib/execution/execute";
+import { nextValidComplianceSlot } from "@/lib/time/ist";
+import { logAuditEvent } from "@/lib/audit/log";
 import { createRng } from "@/data/seed/rng";
+import { isToneDemoCase } from "@/data/seed/constants";
 
 export type BatchActionOutcome = {
   proposedAction: ProposedAction;
   gateResult: GateResult;
+  execution?: ExecutionOutcome;
+  /** Present only for the notice action auto-inserted by a Rule 6 reschedule. */
+  isAutoInsertedNotice?: boolean;
 };
 
 export type BatchCaseResult = {
@@ -39,16 +51,71 @@ export type BatchResult = {
 
 const PROMISE_TRACKER_RNG_SEED = 20260810 + 1; // distinct from the data-generator seed, still fixed/reproducible
 
-async function processActions(
-  actions: ProposedAction[],
-  baseline: ContextBaselineInput
-): Promise<BatchActionOutcome[]> {
+type ExecContext = {
+  customerName: string;
+  language: PreferredLanguage;
+  amountInr?: number;
+  useDeliberateNaiveTemplate?: boolean;
+};
+
+async function gateAndExecute(action: ProposedAction, baseline: ContextBaselineInput, execCtx: ExecContext): Promise<BatchActionOutcome[]> {
+  const outcomes: BatchActionOutcome[] = [];
+  const context = await buildCustomerContext(baseline, action);
+  const gateResult = await runComplianceGate(action, context);
+
+  if (gateResult.allowed) {
+    const execution = await executeAllowedAction({
+      action,
+      customerName: execCtx.customerName,
+      language: execCtx.language,
+      amountInr: execCtx.amountInr,
+      discountPercent: action.discountPercent,
+      useDeliberateNaiveTemplate: execCtx.useDeliberateNaiveTemplate,
+    });
+    outcomes.push({ proposedAction: action, gateResult, execution });
+    return outcomes;
+  }
+
+  outcomes.push({ proposedAction: action, gateResult });
+
+  if (gateResult.rescheduleTo) {
+    const noticeAction: ProposedAction = {
+      ...action,
+      actionType: "SEND_PRE_DEBIT_NOTICE_THEN_RETRY",
+      proposedAt: nextValidComplianceSlot(action.proposedAt, false),
+    };
+    const noticeContext = await buildCustomerContext(baseline, noticeAction);
+    const noticeGate = await runComplianceGate(noticeAction, noticeContext);
+    let noticeExecution: ExecutionOutcome | undefined;
+    if (noticeGate.allowed) {
+      noticeExecution = await executeAllowedAction({
+        action: noticeAction,
+        customerName: execCtx.customerName,
+        language: execCtx.language,
+        amountInr: execCtx.amountInr,
+      });
+    }
+    outcomes.push({ proposedAction: noticeAction, gateResult: noticeGate, execution: noticeExecution, isAutoInsertedNotice: true });
+
+    await logAuditEvent({
+      case_id: action.caseId,
+      customer_id: action.customerId,
+      mandate_id: action.mandateId ?? null,
+      layer: "execution",
+      event_type: "action_rescheduled",
+      reasoning_text: `Original ${action.actionType} rescheduled to ${gateResult.rescheduleTo.toISOString()}, pending the 24h pre-debit notice window — will be re-evaluated in a future batch run.`,
+      detail: { rescheduleTo: gateResult.rescheduleTo.toISOString() },
+    });
+  }
+
+  return outcomes;
+}
+
+async function processActions(actions: ProposedAction[], baseline: ContextBaselineInput, execCtx: ExecContext): Promise<BatchActionOutcome[]> {
   const overridden = applyPromiseTrackerOverrides(actions);
   const outcomes: BatchActionOutcome[] = [];
   for (const action of overridden) {
-    const context = await buildCustomerContext(baseline, action);
-    const gateResult = await runComplianceGate(action, context);
-    outcomes.push({ proposedAction: action, gateResult });
+    outcomes.push(...(await gateAndExecute(action, baseline, execCtx)));
   }
   return outcomes;
 }
@@ -68,7 +135,11 @@ async function processPaymentFailure(r: PaymentFailure): Promise<BatchCaseResult
     verifiedEmail: r.customer_email,
     mandateId: r.mandate_id,
   };
-  const outcomes = await processActions(actions, baseline);
+  const outcomes = await processActions(actions, baseline, {
+    customerName: r.customer_name,
+    language: r.preferred_language,
+    amountInr: r.amount_inr,
+  });
   return {
     caseId: r.id,
     customerId: r.customer_id,
@@ -96,7 +167,11 @@ async function processCheckoutAbandonment(r: CheckoutAbandonment): Promise<Batch
     verifiedPhone: r.customer_phone,
     verifiedEmail: r.customer_email,
   };
-  const outcomes = await processActions(actions, baseline);
+  const outcomes = await processActions(actions, baseline, {
+    customerName: r.customer_name,
+    language: r.preferred_language,
+    amountInr: r.cart_value_inr,
+  });
   return {
     caseId: r.id,
     customerId: r.customer_id,
@@ -129,7 +204,12 @@ async function processB2BReceivable(r: B2BReceivable, now: Date, rng: ReturnType
     await runPromiseLifecycle(r.id, r.business_name, r.payment_history_pattern, rng);
   }
 
-  const outcomes = await processActions(actions, baseline);
+  const outcomes = await processActions(actions, baseline, {
+    customerName: r.contact_name,
+    language: r.preferred_language,
+    amountInr: r.invoice_amount_inr,
+    useDeliberateNaiveTemplate: isToneDemoCase(r),
+  });
   return {
     caseId: r.id,
     customerId: r.business_name,
