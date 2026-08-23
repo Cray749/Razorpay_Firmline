@@ -9,8 +9,8 @@ Last updated: 2026-08-23 (IST)
 | 1 | DONE | Next.js 16.3.2 (App Router) + TS + Tailwind scaffolded directly into repo root (not a nested `firmline/` dir — repo root IS the app root). Deliberate deviation from manual's literal "Next.js 14" pin: create-next-app@latest gave 16.3.2; using a 2-years-stale major in 2026 would be worse. Full folder structure created with stubs. `npm run dev` verified (HTTP 200). |
 | 2 | DONE | data/seed/schema.ts written verbatim per manual, SEED_SCHEMA_VERSION=1, compiles clean. |
 | 3 | DONE | data/seed/generate.ts + rng.ts: seeded mulberry32 PRNG, 200 records (PF 84/CA 58/B2B 58), every edge-case minimum met (printed validation table), reproducible (re-run diff identical except `generated_at`). `npm run seed` writes data/seed/seeds/seed-v1.json and loads to Supabase when configured (currently gracefully skips + warns). Caught and fixed a real IST-midnight UTC-slicing date bug via the validation step. |
-| 4 | NOT_STARTED | |
-| 5 | NOT_STARTED | |
+| 4 | DONE | lib/circuit-breaker/index.ts: rolling 15-min window by record timestamp, 15% GATEWAY_TIMEOUT threshold, added a minimum-sample-size gate (5) after testing revealed isolated single-record windows were trivially "100% of window" and falsely tripping. Verified against the real seed-v1 cluster: exactly 1 trip audit event + 1 resume audit event (not proportional to the 9 records actually paused). |
+| 5 | NOT_STARTED | Diagnosis layer — next up |
 | 6 (6.1 IST util) | DONE | lib/time/ist.ts built, empirically verified correct under both IST-local and TZ=UTC-forced Node processes (Vercel simulation). All required boundary/rollover unit tests pass (`npm test`). Caught and fixed a real month/year-rollover bug during testing. |
 | 6 (6.2 Claude wrapper) | DONE | lib/claude/client.ts built: never throws, returns typed success/failure, logs every call (latency+outcome) to the audit trail. Verified via test with invalid API key — returns success:false, audit row written, no crash. |
 | 6 (decision table) | NOT_STARTED | |
