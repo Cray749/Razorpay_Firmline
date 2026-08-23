@@ -12,6 +12,15 @@
 // to Supabase (async, for the dashboard / case-detail UI to read afterward).
 import { getSupabaseClient } from "@/lib/supabase/client";
 
+// Shared event_type string constants for the events multiple layers need to
+// query back out of the audit log (compliance-context building, dashboards).
+// Using these instead of ad-hoc string literals keeps writers and readers in sync.
+export const AUDIT_EVENT_TYPES = {
+  CONTACT_ATTEMPT: "contact_attempt",
+  CHARGE_ATTEMPT: "charge_attempt",
+  PRE_DEBIT_NOTICE_SENT: "pre_debit_notice_sent",
+} as const;
+
 export type AuditLayer =
   | "circuit_breaker"
   | "diagnosis"

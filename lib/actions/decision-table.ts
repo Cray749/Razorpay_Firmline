@@ -133,11 +133,25 @@ export function decideCheckoutAbandonmentActions(record: CheckoutAbandonment, ro
   if (rootCause === "PRICE_SENSITIVITY") {
     for (const a of actions) {
       if (a.actionType === "OFFER_APPROVED_DISCOUNT") {
-        a.discountPercent = defaultDiscountForSegment(record.customer_segment);
+        a.discountPercent = isDiscountOverreachDemoCase(record.id)
+          ? defaultDiscountForSegment(record.customer_segment) + 20 // deliberately outside the band
+          : defaultDiscountForSegment(record.customer_segment);
       }
     }
   }
   return actions;
+}
+
+// A small, deterministic subset of checkout-abandonment records deliberately
+// gets an over-generous discount offer, outside its segment's approved band —
+// simulating a naive "just give a bigger discount" impulse a less disciplined
+// agent might have. This exists purely so Rule 10 (discount fairness) has
+// real, deterministic content to catch in the batch run, and doubles as a
+// clean example for the counterfactual view (Phase 12): the naive agent sends
+// it, Firmline blocks it.
+export function isDiscountOverreachDemoCase(id: string): boolean {
+  const n = parseInt(id.replace(/\D/g, ""), 10);
+  return Number.isFinite(n) && n % 11 === 3;
 }
 
 export function decideB2BReceivableActions(record: B2BReceivable, rootCause: string, now: Date = new Date()): ProposedAction[] {
