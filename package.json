@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "tsx scripts/run-tests.ts",
     "seed": "tsx data/seed/generate.ts",
-    "measure:diagnosis": "tsx scripts/measure-diagnosis-accuracy.ts"
+    "measure:diagnosis": "tsx scripts/measure-diagnosis-accuracy.ts",
+    "verify:checklist": "tsx scripts/verify-checklist.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
