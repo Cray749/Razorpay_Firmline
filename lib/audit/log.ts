@@ -9,7 +9,15 @@
 // same batch run" (e.g. did we already charge this mandate today, during this
 // run), every logged event is mirrored into an in-memory array that's queried
 // synchronously when building a CustomerContext, in addition to being persisted
-// to Supabase (async, for the dashboard / case-detail UI to read afterward).
+// to Supabase for the dashboard / case-detail UI to read afterward.
+//
+// Persistence is buffered and batch-inserted, not one row per network call.
+// A full batch run produces ~3,000 audit events; awaiting an individual
+// insert for each one (the original design) serialized the ENTIRE pipeline
+// behind ~3,000 sequential round trips and pushed real batch runs to 8+
+// minutes once Supabase was actually reachable — discovered live, after RLS
+// was fixed and writes started actually succeeding instead of failing fast.
+// Buffering into batches of BATCH_SIZE cuts that to a handful of round trips.
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 // Shared event_type string constants for the events multiple layers need to
@@ -65,6 +73,51 @@ function nextId(): string {
   return `audit_${Date.now()}_${seq}`;
 }
 
+const BATCH_SIZE = 200;
+let pendingRows: AuditRow[] = [];
+// Chains flushes so they hit Supabase one at a time, in order, rather than
+// racing several concurrent inserts against each other.
+let flushChain: Promise<void> = Promise.resolve();
+
+function toDbRow(row: AuditRow) {
+  return {
+    id: row.id,
+    case_id: row.case_id,
+    customer_id: row.customer_id,
+    mandate_id: row.mandate_id,
+    channel: row.channel,
+    timestamp: row.timestamp,
+    layer: row.layer,
+    event_type: row.event_type,
+    detail_json: row.detail_json,
+    reasoning_text: row.reasoning_text,
+  };
+}
+
+async function flushPendingRows(): Promise<void> {
+  if (pendingRows.length === 0) return;
+  const client = getSupabaseClient();
+  if (!client) {
+    pendingRows = [];
+    return;
+  }
+  const toWrite = pendingRows;
+  pendingRows = [];
+  const { error } = await client.from("audit_log").insert(toWrite.map(toDbRow));
+  if (error) {
+    console.error(`[audit] failed to persist a batch of ${toWrite.length} audit_log rows to Supabase`, error.message);
+  }
+}
+
+/** Awaits every flush scheduled so far, then flushes anything still pending —
+ * callers (the batch API route) MUST call this before returning a response,
+ * since unawaited background work isn't guaranteed to complete after a
+ * serverless function's response is sent. */
+export async function flushAuditLog(): Promise<void> {
+  await flushChain;
+  await flushPendingRows();
+}
+
 export async function logAuditEvent(input: AuditEventInput): Promise<AuditRow> {
   const row: AuditRow = {
     id: nextId(),
@@ -78,26 +131,20 @@ export async function logAuditEvent(input: AuditEventInput): Promise<AuditRow> {
     detail_json: input.detail ?? {},
     reasoning_text: input.reasoning_text ?? null,
   };
+  // Synchronous: the in-memory mirror must be immediately visible to
+  // queryAuditLogSync, which compliance-context building depends on.
   memoryLog.push(row);
+  pendingRows.push(row);
 
-  const client = getSupabaseClient();
-  if (client) {
-    const { error } = await client.from("audit_log").insert({
-      id: row.id,
-      case_id: row.case_id,
-      customer_id: row.customer_id,
-      mandate_id: row.mandate_id,
-      channel: row.channel,
-      timestamp: row.timestamp,
-      layer: row.layer,
-      event_type: row.event_type,
-      detail_json: row.detail_json,
-      reasoning_text: row.reasoning_text,
-    });
-    if (error) {
-      console.error("[audit] failed to persist audit_log row to Supabase", error.message, row.id);
-    }
+  // Persistence to Supabase is buffered and NOT awaited here — awaiting a
+  // real network round trip on every single event is what turned a ~4.5
+  // minute batch run into an 8.5 minute one once writes started succeeding.
+  // The pipeline only needs the in-memory row immediately; Supabase just
+  // needs it eventually, before the caller (the API route) responds.
+  if (pendingRows.length >= BATCH_SIZE) {
+    flushChain = flushChain.then(() => flushPendingRows());
   }
+
   return row;
 }
 
@@ -135,6 +182,8 @@ export function getAllAuditRowsSync(): AuditRow[] {
 
 export function resetAuditLogForTests(): void {
   memoryLog.length = 0;
+  pendingRows = [];
+  flushChain = Promise.resolve();
   seq = 0;
 }
 
@@ -190,12 +239,30 @@ export async function queryAuditLogForCase(caseId: string): Promise<AuditRow[]> 
 export async function queryAllAuditLog(): Promise<AuditRow[]> {
   const client = getSupabaseClient();
   if (client) {
-    const { data, error } = await client.from("audit_log").select("*").order("timestamp", { ascending: true });
-    if (error) {
-      console.error("[audit] failed to read full audit_log", error.message);
-    } else if (data) {
-      return data as AuditRow[];
+    // Supabase's PostgREST API silently caps a plain .select("*") at (by
+    // default) 1000 rows — confirmed live: a full batch run produces ~4,000
+    // audit rows, and an unpaginated query here returned only the first
+    // 1,000 in timestamp order, silently dropping every promise-tracker
+    // event (logged near the end of the run, for B2B records) and making
+    // the dashboard's promise-fulfillment-rate read 0/0. Page through with
+    // .range() until a page comes back short of the page size.
+    const pageSize = 1000;
+    const allRows: AuditRow[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await client
+        .from("audit_log")
+        .select("*")
+        .order("timestamp", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) {
+        console.error("[audit] failed to read full audit_log", error.message);
+        break;
+      }
+      if (!data || data.length === 0) break;
+      allRows.push(...(data as AuditRow[]));
+      if (data.length < pageSize) break;
     }
+    if (allRows.length > 0) return allRows;
   }
   return memoryLog.slice();
 }

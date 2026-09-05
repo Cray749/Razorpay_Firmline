@@ -37,6 +37,32 @@ import { fromZonedTime } from "date-fns-tz";
 // the batch fully reproducible regardless of real run time.
 const DEFAULT_B2B_NOW = fromZonedTime("2026-08-12T10:00:00", IST_TIME_ZONE);
 
+// Processes records with bounded concurrency, preserving input order in the
+// output — safe ONLY for record types with no cross-record dependencies
+// (i.e. every record's customer/business identifier is unique within the
+// batch, so one record's audit history can never affect another's Rule 2/3
+// evaluation). Verified against the real seed: PF and CA customer_ids are
+// 100% unique; B2B business_name is NOT (42 unique of 58 — the generator's
+// small prefix x suffix combinatorial pool collides), so B2B stays strictly
+// sequential below. This exists because awaiting each record's real Gemini/
+// Razorpay calls one at a time pushed a full batch run close to Vercel's
+// 60s Hobby-tier ceiling (57s observed live) — discovered only once Supabase
+// persistence started actually succeeding and there was nothing left to hide
+// the network latency of ~124 real LLM calls per run.
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+const RECORD_CONCURRENCY = 8;
+
 export type BatchActionOutcome = {
   proposedAction: ProposedAction;
   gateResult: GateResult;
@@ -267,11 +293,14 @@ export async function runBatchPipeline(batch: SeedBatch, now: Date = DEFAULT_B2B
 
   const circuitBreaker = await runCircuitBreaker(batch.payment_failures);
   const rng = createRng(PROMISE_TRACKER_RNG_SEED);
-  const cases: BatchCaseResult[] = [];
 
-  for (const r of batch.payment_failures) {
+  // PF and CA: every customer_id in the seed is unique within its type (no
+  // record's audit history can affect another's Rule 2/3 evaluation), so
+  // these are safe to process with bounded concurrency — see the comment on
+  // mapWithConcurrency above for why this exists.
+  const pfCases = await mapWithConcurrency(batch.payment_failures, RECORD_CONCURRENCY, async (r): Promise<BatchCaseResult> => {
     if (circuitBreaker.pausedRecordIds.has(r.id)) {
-      cases.push({
+      return {
         caseId: r.id,
         customerId: r.customer_id,
         recordType: "circuit_breaker_paused",
@@ -282,19 +311,22 @@ export async function runBatchPipeline(batch: SeedBatch, now: Date = DEFAULT_B2B
         pausedByCircuitBreaker: true,
         actions: [],
         naiveActions: [],
-      });
-      continue;
+      };
     }
-    cases.push(await processPaymentFailure(r));
-  }
+    return processPaymentFailure(r);
+  });
 
-  for (const r of batch.checkout_abandonments) {
-    cases.push(await processCheckoutAbandonment(r));
-  }
+  const caCases = await mapWithConcurrency(batch.checkout_abandonments, RECORD_CONCURRENCY, (r) => processCheckoutAbandonment(r));
 
+  // B2B stays strictly sequential: business_name is NOT unique in the seed
+  // (a real collision, not a hypothetical one — see the comment above), so
+  // one record's audit history can genuinely affect another's Rule 2/3
+  // evaluation, and runPromiseLifecycle threads one shared, stateful RNG
+  // through every record in order — both would break under concurrency.
+  const b2bCases: BatchCaseResult[] = [];
   for (const r of batch.b2b_receivables) {
-    cases.push(await processB2BReceivable(r, now, rng));
+    b2bCases.push(await processB2BReceivable(r, now, rng));
   }
 
-  return { circuitBreaker, cases };
+  return { circuitBreaker, cases: [...pfCases, ...caCases, ...b2bCases] };
 }
