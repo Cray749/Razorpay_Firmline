@@ -526,15 +526,24 @@ async function main() {
     const { error: delError } = await client.from(table).delete().neq("id", "__never__");
     if (delError) console.warn(`[seed] warning clearing ${table}:`, delError.message);
     const chunkSize = 200;
+    let tableFailed = false;
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
       const { error } = await client.from(table).insert(chunk as never);
       if (error) {
         console.error(`[seed] FAILED inserting into ${table}:`, error.message);
+        tableFailed = true;
         process.exitCode = 1;
       }
     }
-    console.log(`[seed] loaded ${rows.length} rows into ${table}`);
+    // Previously this logged "loaded N rows" unconditionally, even after a
+    // logged failure just above it — misleadingly implying success on a
+    // table that actually failed to load. Only claim success if it was one.
+    if (tableFailed) {
+      console.error(`[seed] ${table} did NOT load successfully — see the FAILED line(s) above.`);
+    } else {
+      console.log(`[seed] loaded ${rows.length} rows into ${table}`);
+    }
   }
 }
 

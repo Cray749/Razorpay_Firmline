@@ -110,3 +110,18 @@ create table if not exists case_results (
 
 create index if not exists case_results_batch_run_id_idx on case_results (batch_run_id);
 create index if not exists case_results_record_type_idx on case_results (record_type);
+
+-- ── Row Level Security ───────────────────────────────────────────────────
+-- Supabase's dashboard/platform defaults newly-created tables to RLS ON even
+-- when the CREATE TABLE statement itself says nothing about it (confirmed
+-- live: running this schema without the block below left all five tables
+-- RLS-enabled, and the app's publishable key — the only key it ever uses —
+-- got "new row violates row-level security policy" on every insert). This
+-- project is a single, public, no-login demo instance with no per-user data
+-- to isolate (BUILD_MANUAL.md section 2), so RLS is deliberately turned back
+-- off rather than written around with permissive policies.
+alter table payment_failures disable row level security;
+alter table checkout_abandonments disable row level security;
+alter table b2b_receivables disable row level security;
+alter table audit_log disable row level security;
+alter table case_results disable row level security;
