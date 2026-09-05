@@ -84,9 +84,16 @@ export async function executeAllowedAction(params: ExecuteActionParams): Promise
     });
   }
 
+  // When a real payment link was created, the amount it actually charges may
+  // have been capped (see MAX_TEST_ACCOUNT_AMOUNT_INR in lib/razorpay/client.ts
+  // — the connected test account rejects amounts above Rs 15,000). The
+  // message must quote that same capped figure, not the original record
+  // amount, or it would promise a number the link itself won't accept.
+  const effectiveAmountInr = paymentLink?.success ? paymentLink.amountChargedInr : params.amountInr;
+
   const templateInput: TemplateInput = {
     customerName: params.customerName,
-    amountInr: params.amountInr,
+    amountInr: effectiveAmountInr,
     discountPercent: params.discountPercent,
     paymentLinkUrl: paymentLink?.success ? paymentLink.shortUrl : undefined,
   };
@@ -96,7 +103,7 @@ export async function executeAllowedAction(params: ExecuteActionParams): Promise
     actionType: action.actionType,
     customerName: params.customerName,
     language: params.language,
-    situationSummary: situationSummaryFor(action.actionType, action.rootCause, params.amountInr, params.discountPercent),
+    situationSummary: situationSummaryFor(action.actionType, action.rootCause, effectiveAmountInr, params.discountPercent),
     templateInput,
     useDeliberateNaiveTemplate: params.useDeliberateNaiveTemplate,
   });

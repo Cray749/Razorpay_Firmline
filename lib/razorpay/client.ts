@@ -21,8 +21,20 @@ export type CreatePaymentLinkParams = {
 };
 
 export type CreatePaymentLinkResult =
-  | { success: true; shortUrl: string; paymentLinkId: string }
+  | { success: true; shortUrl: string; paymentLinkId: string; amountChargedInr: number }
   | { success: false; reason: string };
+
+// Empirically determined against the real connected test account (Razorpay
+// returned "amount exceeds maximum amount allowed" at Rs 20,000 but not at
+// Rs 15,000) — a known Razorpay restriction for unverified/newly-created test
+// accounts, not something configurable from this codebase. Capping here
+// rather than just letting the call fail means more of the batch's
+// GENERATE_PAYMENT_LINK actions get a real link instead of silently falling
+// back to a template. The capped amount is returned so the caller can keep
+// the message text consistent with what the link actually charges — a
+// message saying "Rs 26,376" next to a link that only accepts Rs 15,000
+// would be worse than either number alone.
+export const MAX_TEST_ACCOUNT_AMOUNT_INR = 15000;
 
 export async function createTestModePaymentLink(params: CreatePaymentLinkParams): Promise<CreatePaymentLinkResult> {
   const start = Date.now();
@@ -33,7 +45,8 @@ export async function createTestModePaymentLink(params: CreatePaymentLinkParams)
       throw new Error("RAZORPAY_TEST_KEY_ID / RAZORPAY_TEST_KEY_SECRET are not configured");
     }
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-    const amountPaise = Math.max(100, Math.round(params.amountInr * 100)); // Razorpay minimum is 100 paise (Rs 1)
+    const cappedAmountInr = Math.min(params.amountInr, MAX_TEST_ACCOUNT_AMOUNT_INR);
+    const amountPaise = Math.max(100, Math.round(cappedAmountInr * 100)); // Razorpay minimum is 100 paise (Rs 1)
 
     const response = await fetch("https://api.razorpay.com/v1/payment_links", {
       method: "POST",
@@ -48,7 +61,17 @@ export async function createTestModePaymentLink(params: CreatePaymentLinkParams)
           contact: params.customerPhone ?? undefined,
         },
         notify: { sms: false, email: false },
-        reference_id: params.caseId,
+        // Razorpay requires reference_id to be unique account-wide, forever —
+        // not just "unique among currently active links." Using the bare
+        // case_id here meant every re-run of the batch (a core, prominent
+        // feature — the "Re-run batch" button) tried to recreate a link with
+        // the SAME reference_id as a previous run and got a 400 "already
+        // exists," silently degrading more and more real links to the
+        // template fallback with each click. Confirmed live on the actual
+        // deployed app, not assumed. A per-attempt suffix keeps case_id
+        // visible (for the notes field's own case_id, and for anyone reading
+        // reference_id directly) while guaranteeing uniqueness across runs.
+        reference_id: `${params.caseId}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
         notes: { source: "firmline", case_id: params.caseId },
       }),
     });
@@ -64,9 +87,9 @@ export async function createTestModePaymentLink(params: CreatePaymentLinkParams)
       case_id: params.caseId,
       layer: "execution",
       event_type: "razorpay_payment_link_created",
-      detail: { latencyMs, paymentLinkId: data.id, shortUrl: data.short_url, amountPaise },
+      detail: { latencyMs, paymentLinkId: data.id, shortUrl: data.short_url, amountPaise, requestedAmountInr: params.amountInr, cappedAmountInr },
     });
-    return { success: true, shortUrl: data.short_url, paymentLinkId: data.id };
+    return { success: true, shortUrl: data.short_url, paymentLinkId: data.id, amountChargedInr: cappedAmountInr };
   } catch (err) {
     const latencyMs = Date.now() - start;
     const reason = err instanceof Error ? err.message : String(err);
