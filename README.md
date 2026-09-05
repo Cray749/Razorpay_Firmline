@@ -270,7 +270,7 @@ npm run measure:diagnosis    # recomputes docs/metrics/diagnosis_accuracy.json
 
 ## Live demo
 
-🟡 Not deployed yet — the app is built, tested, and verified locally end to end (see [`docs/PROGRESS.md`](docs/PROGRESS.md)); deployment to Vercel + Supabase is the last remaining step, pending the human providing real credentials and a GitHub/Vercel connection. Once live: `<link to be added>`, no login required.
+🟢 **[razorpay-firmline.vercel.app](https://razorpay-firmline.vercel.app)** — Vercel + Supabase free tier, no login required. Verified live end to end (see [`docs/PROGRESS.md`](docs/PROGRESS.md)): a fresh incognito visit, a real batch run against live Gemini/Razorpay/Supabase (~12 seconds), the dashboard, a case's full audit trail, and the counterfactual view all confirmed working on the deployed app itself, not just locally.
 
 ## What's not built yet
 
