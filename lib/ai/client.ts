@@ -21,7 +21,19 @@
 import { GoogleGenAI } from "@google/genai";
 import { logAuditEvent } from "@/lib/audit/log";
 
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// Model chosen by live-testing against a real key, not guessed:
+// - "gemini-2.5-flash" (this project's original choice) returned a 404 —
+//   "no longer available to new users... use models/gemini-3.6-flash."
+// - "gemini-3.6-flash" (the flagship-tier model Google's own error pointed
+//   to) DOES work, but its free tier is only 20 requests/day — nowhere near
+//   this project's ~124-call-per-batch-run volume.
+// - "gemini-flash-lite-latest" (an alias Google keeps pointed at its current
+//   recommended lite-tier model) produces correct, well-formed JSON output
+//   and is the tier actually designed for high-volume, low-cost use — the
+//   right fit here, not just the first thing that returned a 200.
+// GEMINI_MODEL stays overridable via env var so a future deprecation or
+// quota change doesn't require another code change.
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
 
 let cachedClient: GoogleGenAI | null = null;
 

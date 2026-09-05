@@ -79,10 +79,13 @@ async function main() {
       attempts: aiFallbackAttempts,
       succeeded: aiFallbackSucceeded,
       failed_and_flagged_for_human_review: aiFallbackFailed,
+      // Always present (never omitted) so this JSON's shape — and therefore
+      // its inferred TypeScript type in app/dashboard/page.tsx — stays stable
+      // across runs regardless of whether the fallback succeeded this time.
       note:
         aiFallbackFailed > 0 && aiFallbackSucceeded === 0
           ? "GEMINI_API_KEY was not configured when this was measured — every fallback attempt degraded gracefully to the rule-based guess + needs_human_review, per lib/ai/client.ts's contract. Re-run `npm run measure:diagnosis` once credentials are set for the true blended accuracy."
-          : undefined,
+          : null,
     },
     needs_human_review_count: needsHumanReviewCount,
     per_category: perCategory,

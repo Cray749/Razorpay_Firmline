@@ -39,13 +39,17 @@ Phases 0-14 and 16-18 are DONE and verified (tests pass, `npm run build` succeed
 ## Known blockers
 See docs/BLOCKERS.md
 
-## Environment variables confirmed present
-- [ ] NEXT_PUBLIC_SUPABASE_URL
-- [ ] NEXT_PUBLIC_SUPABASE_ANON_KEY
-- [ ] GEMINI_API_KEY (swapped from ANTHROPIC_API_KEY — see the "Provider swap" note below)
-- [ ] RAZORPAY_TEST_KEY_ID
-- [ ] RAZORPAY_TEST_KEY_SECRET
+## Environment variables confirmed present (2026-09-05)
+- [x] NEXT_PUBLIC_SUPABASE_URL
+- [x] NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY — the human's Supabase project issued this (Supabase's current key system) rather than the legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` named below; `lib/supabase/client.ts` accepts either
+- [x] GEMINI_API_KEY (swapped from ANTHROPIC_API_KEY — see the "Provider swap" note below)
+- [x] RAZORPAY_TEST_KEY_ID
+- [x] RAZORPAY_TEST_KEY_SECRET
+
+All five are in `.env.local` (gitignored, never committed). Verification of each is in progress — see the phase log for live-integration results as they land.
 
 ## Provider swap: Anthropic -> Gemini (2026-09-05)
 
-The AI provider was switched from Anthropic Claude to Google Gemini (`gemini-2.5-flash`, via `@google/genai`), because Gemini's free tier requires no credit card, and per-run cost was never the concern (~$0.30/run on either provider) — the concern was needing to add billing to a new provider at all for a buildathon submission. `lib/claude/` is now `lib/ai/`, `lib/classifier/claude-fallback.ts` is now `lib/classifier/ai-fallback.ts`, the `ANTHROPIC_API_KEY` env var is now `GEMINI_API_KEY`, and every audit-trail-facing string that said "Claude" now says "Gemini" or "AI" so the UI stays honest about which provider actually ran. The never-throw/always-logged/graceful-fallback contract is unchanged — only the SDK underneath it moved. `docs/metrics/diagnosis_accuracy.json`'s `claude_fallback` key is now `ai_fallback`.
+The AI provider was switched from Anthropic Claude to Google Gemini (via `@google/genai`), because Gemini's free tier requires no credit card, and per-run cost was never the concern (~$0.30/run on either provider) — the concern was needing to add billing to a new provider at all for a buildathon submission. `lib/claude/` is now `lib/ai/`, `lib/classifier/claude-fallback.ts` is now `lib/classifier/ai-fallback.ts`, the `ANTHROPIC_API_KEY` env var is now `GEMINI_API_KEY`, and every audit-trail-facing string that said "Claude" now says "Gemini" or "AI" so the UI stays honest about which provider actually ran. The never-throw/always-logged/graceful-fallback contract is unchanged — only the SDK underneath it moved. `docs/metrics/diagnosis_accuracy.json`'s `claude_fallback` key is now `ai_fallback`.
+
+**Update (2026-09-05, live-tested against the human's real GEMINI_API_KEY):** the original model choice, `gemini-2.5-flash`, returned a real 404 from Google — "no longer available to new users... use models/gemini-3.6-flash." Switching to that model DID work, but a direct test call revealed its free tier is only 20 requests/day — nowhere near this project's ~124-calls-per-batch-run volume, and the second full batch run mostly hit 429 rate-limit errors after the first ~20 calls (handled gracefully, no crash, but not the real experience we want). Listed available models via `ai.models.list()` and found `gemini-flash-lite-latest` (an alias Google keeps pointed at its current lite-tier model, avoiding this exact deprecation problem recurring) — live-tested with a real diagnosis-shaped call and got correct, well-formed JSON back. This is now the default in `lib/ai/client.ts` (still overridable via `GEMINI_MODEL`). Caught the whole chain by actually running the batch and a few direct debug calls with live credentials, not assumed — the graceful-degradation path handled every failure along the way exactly as designed (affected records correctly flagged `needs_human_review` with the real Google error preserved in the audit trail, no crash, ever). Also confirmed live: a real Supabase connection (valid URL/key, schema not yet applied — see Phase 15 below) and a genuine working Razorpay test-mode payment link (`https://rzp.io/rzp/...`, verified by loading it: correct amount, correct case ID, "Test Mode" banner). Two full batch runs plus two `npm run measure:diagnosis` runs against the live key produced overall diagnosis accuracy of 96.9% and 97.9% respectively on the identical 9-case fallback set — Gemini's answers on genuinely-ambiguous cases aren't byte-identical call to call (unlike the deterministic rule-based path), so the README states a range rather than one fixed decimal. `docs/metrics/diagnosis_accuracy.json`'s `ai_fallback.note` field is now always present (`null` on success) rather than sometimes omitted, after a real type error surfaced that the omitted-vs-present shape made the JSON module's inferred TypeScript type unstable across regenerations.

@@ -1,17 +1,17 @@
 {
   "seed_version": "seed-v1",
-  "measured_at": "2026-09-05T12:17:42.468Z",
+  "measured_at": "2026-09-05T16:59:03.395Z",
   "total_records_diagnosed": 191,
   "circuit_breaker_excluded_count": 9,
   "overall_accuracy": 0.979,
   "ai_fallback": {
     "provider": "gemini",
     "attempts": 9,
-    "succeeded": 0,
-    "failed_and_flagged_for_human_review": 9,
-    "note": "GEMINI_API_KEY was not configured when this was measured — every fallback attempt degraded gracefully to the rule-based guess + needs_human_review, per lib/ai/client.ts's contract. Re-run `npm run measure:diagnosis` once credentials are set for the true blended accuracy."
+    "succeeded": 9,
+    "failed_and_flagged_for_human_review": 0,
+    "note": null
   },
-  "needs_human_review_count": 9,
+  "needs_human_review_count": 0,
   "per_category": {
     "APPROVAL_CHAIN_DELAY": {
       "precision": 1,

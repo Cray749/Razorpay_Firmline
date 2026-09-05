@@ -122,7 +122,7 @@ flowchart TB
 | Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 | One framework for UI and API routes, deploys cleanly to Vercel's free tier |
 | Backend | Next.js API routes (serverless) | No separate backend host needed |
 | Database | Supabase (free tier, Postgres) | Real relational data for transactions, audit logs, compliance state |
-| AI reasoning | Google Gemini API (`gemini-2.5-flash`) | Used only for (a) ambiguous root-cause calls and (b) writing message text — never for deciding whether to act. Chosen over a paid provider for a genuinely free tier (no card required) at this project's call volume (~124 short calls/full batch run). |
+| AI reasoning | Google Gemini API (`gemini-flash-lite-latest`) | Used only for (a) ambiguous root-cause calls and (b) writing message text — never for deciding whether to act. Chosen over a paid provider for a genuinely free tier (no card required); the lite tier specifically, after live-testing showed the flagship tier's free quota (20 requests/day) can't cover this project's call volume (~124 short calls/full batch run). |
 | Voice | Pre-rendered Hinglish audio for the demo, Web Speech API as a live fallback | Reliable in a recorded video; free and interactive when clicked live |
 | Charts | Recharts | Dashboard visuals |
 | Deployment | Vercel (app) + Supabase (DB) | Both have usable free tiers |
@@ -202,7 +202,7 @@ Real numbers from a real batch run against `seed-v1` (seed value `20260810`, 200
 | Gross recovered (modeled) | ₹48,97,490 |
 | **Net recovered yield** (gross − discounts − action cost) | ₹48,79,958 |
 | Recovery rate | 22.41% |
-| Root-cause classification accuracy | **97.9%** overall (191/191 diagnosable records — see per-category precision/recall in [`docs/metrics/diagnosis_accuracy.json`](docs/metrics/diagnosis_accuracy.json)). Measured with the AI fallback unavailable (rule-based-only pass) — every low-confidence case correctly degraded to a flagged `needs_human_review` guess rather than crashing or silently guessing. Will re-measure for the true blended rule+Gemini number once `GEMINI_API_KEY` is live in this environment. |
+| Root-cause classification accuracy | **~97%** overall, blended rule-based + live Gemini fallback (191/191 diagnosable records — see per-category precision/recall in [`docs/metrics/diagnosis_accuracy.json`](docs/metrics/diagnosis_accuracy.json)). All 9 low-confidence cases that needed the AI fallback got a real Gemini answer (0 failures); the exact figure moves a point or two between runs (96.9%–97.9% observed) because, unlike the deterministic rule-based path, Gemini's answers on the same genuinely-ambiguous cases aren't identical call to call — an honest property of the fallback, not a measurement bug. |
 | Compliance rule fire count, by rule | 232 total blocks/reschedules across all 12 gate rules (every rule fired at least once) — see the dashboard's bar chart for the per-rule breakdown, or run `npm run verify:checklist` |
 | Compliance violations | 0 — a blocked or rescheduled action is never dispatched; this is enforced structurally, not just observed |
 | Circuit breaker trips in batch | 1 (on the deliberately seeded 13-record `GATEWAY_TIMEOUT` cluster; 9 records paused with exactly one trip audit event and one resume audit event, not one per record) |
@@ -276,8 +276,6 @@ npm run measure:diagnosis    # recomputes docs/metrics/diagnosis_accuracy.json
 
 - Real WhatsApp/SMS/email delivery is simulated in the UI, not sent through a live provider — by design (see Scope, above).
 - Pre-rendered Hinglish voice previews (2–3 representative cases) aren't recorded yet — no TTS provider credential (ElevenLabs/OpenAI TTS) was part of this project's provisioned environment variables. The Case Detail page's voice button already checks for a pre-rendered file first and falls back to the browser's live `SpeechSynthesis` API, which works today; dropping MP3s into `public/audio/demo_case_<id>.mp3` activates the primary path with no code changes.
-- The Gemini-based diagnosis fallback and message generation haven't been exercised against a live `GEMINI_API_KEY` in this environment yet — the graceful-degradation path (rule-based guess + `needs_human_review` flag, or a plain compliant template) has been thoroughly tested instead, and is exactly what Phase 6.2 of the build manual asked for. The reported 97.9% diagnosis accuracy is the rule-based-only number; expect it to move once the real fallback is measured.
-- A real Razorpay test-mode payment link hasn't been generated end to end in this environment yet, for the same reason (no live key exercised) — the integration code makes a real REST call and has been reviewed, not stubbed.
 - The Gemini-based fallback classifier hasn't been stress-tested against adversarial input.
 - This runs against synthetic data, not a live merchant account.
 - Five secondary per-layer API routes (`/api/diagnose`, `/api/decide`, `/api/compliance`, `/api/circuit-breaker`, `/api/execute`) are scaffolded but not wired up — the real pipeline runs through `lib/batch/run-batch.ts` end to end instead, exposed via `/api/batch`.
