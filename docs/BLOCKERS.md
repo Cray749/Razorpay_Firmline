@@ -14,6 +14,8 @@ Blocked on the human providing:
 
 **Update (still Phase 0, mid-build):** the human chose to create `.env.local` themselves and set up GitHub/Vercel themselves (not yet confirmed done). Build proceeded through Phases 1-9 on all credential-independent work; all logic is written, unit-tested, and verified against the real seeded batch with Claude/Razorpay calls exercised in their documented graceful-degradation paths (never crash, always log, always fall back). Live verification (real Claude diagnosis accuracy, a real working Razorpay payment link, actual Supabase persistence, deployment) is still pending credentials.
 
+**Update (2026-09-05):** at the human's request, the AI provider was swapped from Anthropic Claude to Google Gemini before credentials were ever entered — Gemini's free tier needs no card, and the per-run cost was never really the issue at this project's call volume (~$0.30/run on either provider). `ANTHROPIC_API_KEY` in the list above is now `GEMINI_API_KEY`; every reference to "Claude" in code/docs/audit-trail strings above predates this swap and describes what was true at the time it was written. See `docs/PROGRESS.md`'s "Provider swap" note for the full rename list.
+
 ## Phase 9.3 — Pre-rendered Hinglish voice (OPEN, new blocker)
 
 Phase 9.3 wants 2-3 cases with a PRE-RENDERED MP3 (via "ElevenLabs, OpenAI TTS, or similar") as the primary playback path, with the browser's `SpeechSynthesis` API as a secondary fallback only. Phase 0's fixed credential list (`NEXT_PUBLIC_SUPABASE_URL/ANON_KEY`, `ANTHROPIC_API_KEY`, `RAZORPAY_TEST_KEY_ID/SECRET`) does not include a TTS provider key, and per Phase 0's own instruction ("do not fabricate placeholder keys and continue"), one hasn't been assumed.

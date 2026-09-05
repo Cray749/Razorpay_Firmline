@@ -131,7 +131,7 @@ function classifyPfGroundTruth(
   // correctly-implemented classifier should output on the confident branches.
   // The one place real ambiguity (and thus real classifier error) is allowed
   // to exist is the UNKNOWN failure_code branch, which the rule-based
-  // classifier can't resolve and must escalate to the Claude fallback.
+  // classifier can't resolve and must escalate to the AI fallback.
   if (isDisputed) return "NEEDS_HUMAN_REVIEW";
   if (failureCode === "INSUFFICIENT_FUNDS") return "INSUFFICIENT_BALANCE";
   if (!isWithinNpciNonPeakWindow(attemptedAt)) return "MANDATE_TIMING_VIOLATION";

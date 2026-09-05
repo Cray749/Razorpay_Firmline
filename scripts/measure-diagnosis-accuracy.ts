@@ -11,7 +11,7 @@ import path from "node:path";
 import seedBatchJson from "@/data/seed/seeds/seed-v1.json";
 import type { SeedBatch } from "@/data/seed/schema";
 import { runCircuitBreaker } from "@/lib/circuit-breaker/index";
-import { diagnosePaymentFailure, diagnoseCheckoutAbandonment, diagnoseB2BReceivable } from "@/lib/classifier/claude-fallback";
+import { diagnosePaymentFailure, diagnoseCheckoutAbandonment, diagnoseB2BReceivable } from "@/lib/classifier/ai-fallback";
 import { SEED_VERSION_LABEL } from "@/data/seed/constants";
 
 const batch = seedBatchJson as SeedBatch;
@@ -63,9 +63,9 @@ async function main() {
   const overallCorrect = samples.filter((s) => s.trueLabel === s.predictedLabel).length;
   const overallAccuracy = round(overallCorrect / samples.length);
 
-  const claudeFallbackAttempts = samples.filter((s) => s.source === "claude_fallback" || s.source === "claude_fallback_failed").length;
-  const claudeFallbackSucceeded = samples.filter((s) => s.source === "claude_fallback").length;
-  const claudeFallbackFailed = samples.filter((s) => s.source === "claude_fallback_failed").length;
+  const aiFallbackAttempts = samples.filter((s) => s.source === "ai_fallback" || s.source === "ai_fallback_failed").length;
+  const aiFallbackSucceeded = samples.filter((s) => s.source === "ai_fallback").length;
+  const aiFallbackFailed = samples.filter((s) => s.source === "ai_fallback_failed").length;
   const needsHumanReviewCount = samples.filter((s) => s.needsHumanReview).length;
 
   const output = {
@@ -74,13 +74,14 @@ async function main() {
     total_records_diagnosed: samples.length,
     circuit_breaker_excluded_count: cb.pausedRecordIds.size,
     overall_accuracy: overallAccuracy,
-    claude_fallback: {
-      attempts: claudeFallbackAttempts,
-      succeeded: claudeFallbackSucceeded,
-      failed_and_flagged_for_human_review: claudeFallbackFailed,
+    ai_fallback: {
+      provider: "gemini",
+      attempts: aiFallbackAttempts,
+      succeeded: aiFallbackSucceeded,
+      failed_and_flagged_for_human_review: aiFallbackFailed,
       note:
-        claudeFallbackFailed > 0 && claudeFallbackSucceeded === 0
-          ? "ANTHROPIC_API_KEY was not configured when this was measured — every fallback attempt degraded gracefully to the rule-based guess + needs_human_review, per lib/claude/client.ts's contract. Re-run `npm run measure:diagnosis` once credentials are set for the true blended accuracy."
+        aiFallbackFailed > 0 && aiFallbackSucceeded === 0
+          ? "GEMINI_API_KEY was not configured when this was measured — every fallback attempt degraded gracefully to the rule-based guess + needs_human_review, per lib/ai/client.ts's contract. Re-run `npm run measure:diagnosis` once credentials are set for the true blended accuracy."
           : undefined,
     },
     needs_human_review_count: needsHumanReviewCount,
@@ -93,7 +94,7 @@ async function main() {
   writeFileSync(outPath, JSON.stringify(output, null, 2));
 
   console.log(`\nOverall accuracy: ${(overallAccuracy * 100).toFixed(1)}% (${overallCorrect}/${samples.length})`);
-  console.log(`Claude fallback: ${claudeFallbackSucceeded} succeeded, ${claudeFallbackFailed} failed-and-flagged, out of ${claudeFallbackAttempts} attempts`);
+  console.log(`AI fallback (Gemini): ${aiFallbackSucceeded} succeeded, ${aiFallbackFailed} failed-and-flagged, out of ${aiFallbackAttempts} attempts`);
   console.log(`Wrote ${outPath}`);
 }
 

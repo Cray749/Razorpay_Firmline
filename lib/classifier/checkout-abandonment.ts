@@ -53,7 +53,7 @@ export function classifyCheckoutAbandonment(
   return {
     rootCause: "PRICE_SENSITIVITY",
     confidence: 0.3,
-    reasoning: "No signal combination matched a confident rule — escalating to the Claude fallback for a closer read of this session's pattern.",
+    reasoning: "No signal combination matched a confident rule — escalating to the AI fallback for a closer read of this session's pattern.",
     source: "rule_based",
   };
 }

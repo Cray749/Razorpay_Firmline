@@ -10,7 +10,7 @@ flowchart TB
 
     subgraph BATCH["lib/batch/run-batch.ts — the orchestrator"]
         CB["Circuit Breaker\nlib/circuit-breaker\nrolling 15-min window, >15% GATEWAY_TIMEOUT"]
-        DIAG["Diagnosis\nlib/classifier\nrule-based decision tree, Claude fallback below 0.5 confidence"]
+        DIAG["Diagnosis\nlib/classifier\nrule-based decision tree, Gemini fallback below 0.5 confidence"]
         DEC["Decision\nlib/actions/decision-table.ts\nfixed lookup table + proactive stop-loss check"]
         PROMISE["Promise Tracker\nlib/promise-tracker\nPROMISED -> DUE_DATE_PENDING -> FULFILLED|BROKEN"]
         CTX["CustomerContext builder\nlib/rules/context.ts\nasync — the only I/O the rules see"]
@@ -95,4 +95,5 @@ Both were caught by actually running the app in a browser and reading the result
 - **No fraud detection, no chargeback handling.** That's a different problem (and a different track) from revenue recovery. Firmline's dispute-freeze rule (13) stops the moment a customer disputes a charge — it hands off to a human rather than trying to also adjudicate the dispute itself.
 - **Five per-layer API routes are scaffolded but not wired.** See "Why a batch orchestrator" above.
 - **Pre-rendered Hinglish voice files aren't recorded.** No TTS provider credential was among the five environment variables this project was provisioned with. The fallback path (live browser `SpeechSynthesis`) was always meant to be a legitimate secondary path, not a placeholder — it works today.
-- **Claude fallback and Razorpay integration are implemented but not yet exercised against live credentials in this environment.** Both have a fully tested graceful-degradation path exercised extensively instead (see `docs/PROGRESS.md`), which is arguably the more important thing to have proven for a system whose core thesis is "handle failure gracefully."
+- **Gemini fallback and Razorpay integration are implemented but not yet exercised against live credentials in this environment.** Both have a fully tested graceful-degradation path exercised extensively instead (see `docs/PROGRESS.md`), which is arguably the more important thing to have proven for a system whose core thesis is "handle failure gracefully."
+- **The AI provider was switched from Anthropic Claude to Google Gemini mid-build** (see `docs/PROGRESS.md`'s "Provider swap" note) once the cost of adding a new paid API key was weighed against Gemini's genuinely free tier at this project's call volume. This meant renaming `lib/claude/` to `lib/ai/` and updating every audit-trail-facing string that named the provider, so the Case Detail page's plain-English timeline stays honest about which model actually ran — a good example of why those strings shouldn't hardcode a provider name casually in the first place.

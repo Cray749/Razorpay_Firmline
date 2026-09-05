@@ -1,9 +1,9 @@
-// lib/claude/generate-message.ts — the low-level Claude call for generating
+// lib/ai/generate-message.ts — the low-level Gemini call for generating
 // recovery message text (BUILD_MANUAL.md Phase 9.1). Explicitly instructed to
 // avoid urgency/guilt/fake-scarcity/legal-action language so messages pass
 // Rule 9 by construction, not by luck. Generates Hinglish when the customer's
 // preferred_language is hi-en.
-import { callClaude } from "./client";
+import { callGemini } from "./client";
 import type { PreferredLanguage } from "@/data/seed/schema";
 import type { ActionType } from "@/lib/actions/types";
 
@@ -33,7 +33,7 @@ export async function generateMessage(params: GenerateMessageParams): Promise<Ge
 
   const userMessage = `Customer name: ${params.customerName}\nAction type: ${params.actionType}\nSituation: ${params.situationSummary}\n\nWrite the message now, following the hard rules exactly.`;
 
-  const result = await callClaude({ purpose: "message_generation", system, userMessage, caseId: params.caseId, maxTokens: 250 });
+  const result = await callGemini({ purpose: "message_generation", system, userMessage, caseId: params.caseId, maxTokens: 250 });
   if (!result.success) {
     return { success: false, reason: result.reason };
   }

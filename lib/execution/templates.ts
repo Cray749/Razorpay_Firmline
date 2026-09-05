@@ -1,5 +1,5 @@
 // lib/execution/templates.ts — plain, pre-written, non-personalized fallback
-// templates used when Claude message generation fails (lib/claude/client.ts's
+// templates used when AI message generation fails (lib/ai/client.ts's
 // contract: never block the record, fall back to a safe default). Written to
 // pass Rule 9 by construction — no urgency, no guilt, no fake scarcity, no
 // legal-action phrasing.
@@ -49,7 +49,7 @@ export function renderFallbackTemplate(actionType: ActionType, language: Preferr
  * Rule-9 demonstration subset (see data/seed/generate.ts's isToneDemoCase and
  * lib/execution/message.ts) — mimics what a careless recovery bot might send,
  * so the tone/content rule has real, deterministic content to catch in the
- * batch run, independent of Claude's (compliant-by-instruction) output.
+ * batch run, independent of the AI model's (compliant-by-instruction) output.
  */
 export function renderDeliberateNaiveTemplate(input: TemplateInput): string {
   return `URGENT: This is your FINAL NOTICE. Dear ${input.customerName}, your overdue balance of Rs ${input.amountInr ?? 0} must be paid IMMEDIATELY!! Legal action will be taken if payment is not received right away!!`;

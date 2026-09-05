@@ -42,6 +42,10 @@ See docs/BLOCKERS.md
 ## Environment variables confirmed present
 - [ ] NEXT_PUBLIC_SUPABASE_URL
 - [ ] NEXT_PUBLIC_SUPABASE_ANON_KEY
-- [ ] ANTHROPIC_API_KEY
+- [ ] GEMINI_API_KEY (swapped from ANTHROPIC_API_KEY — see the "Provider swap" note below)
 - [ ] RAZORPAY_TEST_KEY_ID
 - [ ] RAZORPAY_TEST_KEY_SECRET
+
+## Provider swap: Anthropic -> Gemini (2026-09-05)
+
+The AI provider was switched from Anthropic Claude to Google Gemini (`gemini-2.5-flash`, via `@google/genai`), because Gemini's free tier requires no credit card, and per-run cost was never the concern (~$0.30/run on either provider) — the concern was needing to add billing to a new provider at all for a buildathon submission. `lib/claude/` is now `lib/ai/`, `lib/classifier/claude-fallback.ts` is now `lib/classifier/ai-fallback.ts`, the `ANTHROPIC_API_KEY` env var is now `GEMINI_API_KEY`, and every audit-trail-facing string that said "Claude" now says "Gemini" or "AI" so the UI stays honest about which provider actually ran. The never-throw/always-logged/graceful-fallback contract is unchanged — only the SDK underneath it moved. `docs/metrics/diagnosis_accuracy.json`'s `claude_fallback` key is now `ai_fallback`.

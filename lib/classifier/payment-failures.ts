@@ -78,7 +78,7 @@ export function classifyPaymentFailure(record: PaymentFailure): ClassificationRe
   return {
     rootCause: "GATEWAY_TECHNICAL_ERROR",
     confidence: 0.3,
-    reasoning: `Failure code "${record.failure_code}" doesn't map cleanly to a known cause — escalating to the Claude fallback for a closer read.`,
+    reasoning: `Failure code "${record.failure_code}" doesn't map cleanly to a known cause — escalating to the AI fallback for a closer read.`,
     source: "rule_based",
   };
 }

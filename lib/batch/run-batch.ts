@@ -13,7 +13,7 @@
 import type { SeedBatch, PaymentFailure, CheckoutAbandonment, B2BReceivable, PreferredLanguage } from "@/data/seed/schema";
 import type { ProposedAction, RecordType } from "@/lib/actions/types";
 import { runCircuitBreaker, type CircuitBreakerOutcome } from "@/lib/circuit-breaker/index";
-import { diagnosePaymentFailure, diagnoseCheckoutAbandonment, diagnoseB2BReceivable } from "@/lib/classifier/claude-fallback";
+import { diagnosePaymentFailure, diagnoseCheckoutAbandonment, diagnoseB2BReceivable } from "@/lib/classifier/ai-fallback";
 import { decidePaymentFailureActions, decideCheckoutAbandonmentActions, decideB2BReceivableActions } from "@/lib/actions/decision-table";
 import { applyPromiseTrackerOverrides, runPromiseLifecycle } from "@/lib/promise-tracker/state-machine";
 import { buildCustomerContext, resetContextBackfillForTests, type ContextBaselineInput } from "@/lib/rules/context";

@@ -1,6 +1,6 @@
 // lib/audit/log.ts — the audit trail. Every event from every layer (circuit
 // breaker, diagnosis, decision, each of the 13 compliance rules, promise-tracker
-// transitions, execution outcomes, Claude API calls) writes one row here.
+// transitions, execution outcomes, AI model calls) writes one row here.
 //
 // Design note: rule functions in lib/rules/*.ts are pure — they take a fully
 // built CustomerContext and return a result synchronously, they never do I/O
@@ -28,7 +28,7 @@ export type AuditLayer =
   | "compliance"
   | "promise_tracker"
   | "execution"
-  | "claude";
+  | "ai";
 
 export type AuditEventInput = {
   case_id: string | null; // null for batch-wide events, e.g. a circuit breaker trip

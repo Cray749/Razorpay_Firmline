@@ -8,7 +8,7 @@ import { runBatchPipeline } from "@/lib/batch/run-batch";
 import { saveBatchRun, loadLatestBatchRun } from "@/lib/db/case-results";
 import { computeAuditDerivedMetrics } from "@/lib/metrics/dashboard";
 
-// Batch runs can involve real Claude/Razorpay calls for up to ~200 records;
+// Batch runs can involve real Gemini/Razorpay calls for up to ~200 records;
 // give this route the most runtime Vercel allows on the Hobby tier.
 export const maxDuration = 60;
 

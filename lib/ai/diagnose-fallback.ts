@@ -1,10 +1,10 @@
-// lib/claude/diagnose-fallback.ts — the low-level Claude call used ONLY for
+// lib/ai/diagnose-fallback.ts — the low-level Gemini call used ONLY for
 // low-confidence root-cause diagnosis (Phase 5.2 of BUILD_MANUAL.md). This
 // call never receives anything about compliance rules — diagnosis only, kept
 // narrowly scoped to that one job. Callers must validate the returned label
 // against the fixed taxonomy themselves is handled here: an out-of-taxonomy
 // label is treated as a call failure, never silently accepted.
-import { callClaude } from "./client";
+import { callGemini } from "./client";
 
 export type DiagnoseFallbackParams = {
   recordType: "payment failure" | "checkout abandonment" | "overdue B2B receivable";
@@ -38,7 +38,7 @@ export async function diagnoseFallback(params: DiagnoseFallbackParams): Promise<
 
   const userMessage = `Record type: ${params.recordType}\n\n${params.recordSummary}\n\nClassify the root cause using exactly one label from the fixed list.`;
 
-  const result = await callClaude({
+  const result = await callGemini({
     purpose: "diagnosis_fallback",
     system,
     userMessage,
@@ -54,15 +54,15 @@ export async function diagnoseFallback(params: DiagnoseFallbackParams): Promise<
   try {
     parsed = extractJsonObject(result.text);
   } catch (err) {
-    return { success: false, reason: `Could not parse Claude's diagnosis response as JSON: ${err instanceof Error ? err.message : String(err)}` };
+    return { success: false, reason: `Could not parse Gemini's diagnosis response as JSON: ${err instanceof Error ? err.message : String(err)}` };
   }
 
   const obj = parsed as { label?: unknown; reasoning?: unknown };
   if (typeof obj.label !== "string" || !params.taxonomy.includes(obj.label)) {
-    return { success: false, reason: `Claude returned a label outside the fixed taxonomy: ${JSON.stringify(obj.label)}` };
+    return { success: false, reason: `Gemini returned a label outside the fixed taxonomy: ${JSON.stringify(obj.label)}` };
   }
   if (typeof obj.reasoning !== "string" || !obj.reasoning.trim()) {
-    return { success: false, reason: "Claude's diagnosis response was missing a reasoning string" };
+    return { success: false, reason: "Gemini's diagnosis response was missing a reasoning string" };
   }
 
   return { success: true, rootCause: obj.label, reasoning: obj.reasoning.trim() };

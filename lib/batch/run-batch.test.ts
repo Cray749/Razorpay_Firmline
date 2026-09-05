@@ -66,14 +66,14 @@ export default async function run(): Promise<void> {
   check(totalRows > 0, "the batch run must produce audit log rows");
 
   // Execution layer checks (Phase 9): every allowed, message-bearing action
-  // produces a rendered message; since ANTHROPIC_API_KEY isn't configured in
+  // produces a rendered message; since GEMINI_API_KEY isn't configured in
   // this environment, it should gracefully degrade to the fallback template
   // rather than crash or skip the record.
   const allExecutedMessages = result.cases.flatMap((c) => c.actions.map((a) => a.execution?.message).filter((m): m is NonNullable<typeof m> => !!m));
   check(allExecutedMessages.length > 0, "at least one action must have produced a message");
   check(
     allExecutedMessages.every((m) => m.source === "fallback_template" || m.source === "deliberate_naive_demo"),
-    "with no ANTHROPIC_API_KEY configured, every message must come from the fallback or deliberate-demo template, never silently blank"
+    "with no GEMINI_API_KEY configured, every message must come from the fallback or deliberate-demo template, never silently blank"
   );
 
   // The deliberate Rule-9 tone-demo subset (naive template) must actually get

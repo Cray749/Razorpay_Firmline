@@ -17,11 +17,14 @@ const LAYER_LABELS: Record<string, string> = {
   compliance: "Compliance gate",
   promise_tracker: "Promise tracker",
   execution: "Execution",
-  claude: "Claude API",
+  ai: "Gemini API",
 };
 
 function titleCase(s: string): string {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return s
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\bAi\b/g, "AI");
 }
 
 export default function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {

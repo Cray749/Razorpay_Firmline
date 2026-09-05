@@ -1,14 +1,15 @@
 {
   "seed_version": "seed-v1",
-  "measured_at": "2026-08-23T11:45:36.087Z",
+  "measured_at": "2026-09-05T12:17:42.468Z",
   "total_records_diagnosed": 191,
   "circuit_breaker_excluded_count": 9,
   "overall_accuracy": 0.979,
-  "claude_fallback": {
+  "ai_fallback": {
+    "provider": "gemini",
     "attempts": 9,
     "succeeded": 0,
     "failed_and_flagged_for_human_review": 9,
-    "note": "ANTHROPIC_API_KEY was not configured when this was measured — every fallback attempt degraded gracefully to the rule-based guess + needs_human_review, per lib/claude/client.ts's contract. Re-run `npm run measure:diagnosis` once credentials are set for the true blended accuracy."
+    "note": "GEMINI_API_KEY was not configured when this was measured — every fallback attempt degraded gracefully to the rule-based guess + needs_human_review, per lib/ai/client.ts's contract. Re-run `npm run measure:diagnosis` once credentials are set for the true blended accuracy."
   },
   "needs_human_review_count": 9,
   "per_category": {

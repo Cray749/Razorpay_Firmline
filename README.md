@@ -109,7 +109,7 @@ flowchart TB
 |---|---|---|
 | Ingestion | Load a batch of synthetic records shaped like real Razorpay webhook payloads | Seed JSON → Postgres |
 | Circuit Breaker | Watch the stream for a systemic outage signature and pause the batch before individual records get misclassified | Stateful rolling-window check, sits ahead of Diagnosis |
-| Diagnosis | Classify *why* revenue is at risk into a specific, distinct cause | Rule-based classifier first; Claude API as a fallback for ambiguous cases only, reasoning logged |
+| Diagnosis | Classify *why* revenue is at risk into a specific, distinct cause | Rule-based classifier first; Gemini API as a fallback for ambiguous cases only, reasoning logged |
 | Decision | Map (cause + customer state + compliance state) → one action from a fixed list | Lookup-table logic, not open-ended generation |
 | Compliance Gate | Check every proposed action against hard rules before it's allowed to run | Plain deterministic functions, one file per rule |
 | Execution | Carry out the allowed action | Simulated channel adapters, real Razorpay test-mode payment links, Hinglish voice preview |
@@ -122,7 +122,7 @@ flowchart TB
 | Frontend | Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 | One framework for UI and API routes, deploys cleanly to Vercel's free tier |
 | Backend | Next.js API routes (serverless) | No separate backend host needed |
 | Database | Supabase (free tier, Postgres) | Real relational data for transactions, audit logs, compliance state |
-| AI reasoning | Anthropic Claude API | Used only for (a) ambiguous root-cause calls and (b) writing message text — never for deciding whether to act |
+| AI reasoning | Google Gemini API (`gemini-2.5-flash`) | Used only for (a) ambiguous root-cause calls and (b) writing message text — never for deciding whether to act. Chosen over a paid provider for a genuinely free tier (no card required) at this project's call volume (~124 short calls/full batch run). |
 | Voice | Pre-rendered Hinglish audio for the demo, Web Speech API as a live fallback | Reliable in a recorded video; free and interactive when clicked live |
 | Charts | Recharts | Dashboard visuals |
 | Deployment | Vercel (app) + Supabase (DB) | Both have usable free tiers |
@@ -202,7 +202,7 @@ Real numbers from a real batch run against `seed-v1` (seed value `20260810`, 200
 | Gross recovered (modeled) | ₹48,97,490 |
 | **Net recovered yield** (gross − discounts − action cost) | ₹48,79,958 |
 | Recovery rate | 22.41% |
-| Root-cause classification accuracy | **97.9%** overall (191/191 diagnosable records — see per-category precision/recall in [`docs/metrics/diagnosis_accuracy.json`](docs/metrics/diagnosis_accuracy.json)). Measured with the Claude fallback unavailable (rule-based-only pass) — every low-confidence case correctly degraded to a flagged `needs_human_review` guess rather than crashing or silently guessing. Will re-measure for the true blended rule+Claude number once `ANTHROPIC_API_KEY` is live in this environment. |
+| Root-cause classification accuracy | **97.9%** overall (191/191 diagnosable records — see per-category precision/recall in [`docs/metrics/diagnosis_accuracy.json`](docs/metrics/diagnosis_accuracy.json)). Measured with the AI fallback unavailable (rule-based-only pass) — every low-confidence case correctly degraded to a flagged `needs_human_review` guess rather than crashing or silently guessing. Will re-measure for the true blended rule+Gemini number once `GEMINI_API_KEY` is live in this environment. |
 | Compliance rule fire count, by rule | 232 total blocks/reschedules across all 12 gate rules (every rule fired at least once) — see the dashboard's bar chart for the per-rule breakdown, or run `npm run verify:checklist` |
 | Compliance violations | 0 — a blocked or rescheduled action is never dispatched; this is enforced structurally, not just observed |
 | Circuit breaker trips in batch | 1 (on the deliberately seeded 13-record `GATEWAY_TIMEOUT` cluster; 9 records paused with exactly one trip audit event and one resume audit event, not one per record) |
@@ -224,7 +224,7 @@ Every number above is traceable to a computation — none are hardcoded (`npm ru
 │   ├── counterfactual/          # naive agent vs. Firmline, side by side
 │   └── _components/             # StampBadge, RuleFireChart, VoicePlayback, LoadingState
 ├── lib/
-│   ├── classifier/               # rule-based decision trees + Claude fallback orchestration
+│   ├── classifier/               # rule-based decision trees + AI fallback orchestration
 │   ├── rules/                    # the 13 compliance rules, gate aggregator, CustomerContext builder
 │   ├── actions/                  # bounded action types + decision table
 │   ├── circuit-breaker/          # batch-wide rolling-window breaker
@@ -234,7 +234,7 @@ Every number above is traceable to a computation — none are hardcoded (`npm ru
 │   ├── audit/                    # the audit trail (Supabase-backed, in-memory fallback)
 │   ├── db/                       # case_results persistence
 │   ├── metrics/                  # dashboard aggregation + the resolution simulation
-│   ├── claude/                   # the one place allowed to call the Anthropic SDK
+│   ├── ai/                       # the one place allowed to call the Gemini SDK
 │   ├── razorpay/                 # real test-mode Payment Links REST call
 │   ├── time/                     # single source of truth for IST handling
 │   └── ui/                       # small shared view-layer helpers
@@ -255,12 +255,12 @@ Note: `app/api/{diagnose,decide,compliance,circuit-breaker,execute}/route.ts` ex
 git clone <repo-url>
 cd firmline
 npm install
-cp .env.example .env.local   # fill in your own Supabase/Anthropic/Razorpay test keys
+cp .env.example .env.local   # fill in your own Supabase/Gemini/Razorpay test keys
 npm run seed                 # generates data/seed/seeds/seed-v1.json, loads it to Supabase if configured
 npm run dev                  # http://localhost:3000 — click "Run the batch"
 ```
 
-Everything works with zero credentials configured — Supabase, Claude, and Razorpay all degrade gracefully to a documented fallback path (in-memory storage for a single dev session, plain compliant templates instead of AI-generated messages, and a skipped payment-link call respectively) rather than crashing. Fill in `.env.local` to get the real, live-integrated experience.
+Everything works with zero credentials configured — Supabase, Gemini, and Razorpay all degrade gracefully to a documented fallback path (in-memory storage for a single dev session, plain compliant templates instead of AI-generated messages, and a skipped payment-link call respectively) rather than crashing. Fill in `.env.local` to get the real, live-integrated experience.
 
 ```bash
 npm test                     # unit + integration tests (13 rules, IST utility, circuit breaker, ...)
@@ -276,9 +276,9 @@ npm run measure:diagnosis    # recomputes docs/metrics/diagnosis_accuracy.json
 
 - Real WhatsApp/SMS/email delivery is simulated in the UI, not sent through a live provider — by design (see Scope, above).
 - Pre-rendered Hinglish voice previews (2–3 representative cases) aren't recorded yet — no TTS provider credential (ElevenLabs/OpenAI TTS) was part of this project's provisioned environment variables. The Case Detail page's voice button already checks for a pre-rendered file first and falls back to the browser's live `SpeechSynthesis` API, which works today; dropping MP3s into `public/audio/demo_case_<id>.mp3` activates the primary path with no code changes.
-- The Claude-based diagnosis fallback and message generation haven't been exercised against a live `ANTHROPIC_API_KEY` in this environment yet — the graceful-degradation path (rule-based guess + `needs_human_review` flag, or a plain compliant template) has been thoroughly tested instead, and is exactly what Phase 6.2 of the build manual asked for. The reported 97.9% diagnosis accuracy is the rule-based-only number; expect it to move once the real fallback is measured.
+- The Gemini-based diagnosis fallback and message generation haven't been exercised against a live `GEMINI_API_KEY` in this environment yet — the graceful-degradation path (rule-based guess + `needs_human_review` flag, or a plain compliant template) has been thoroughly tested instead, and is exactly what Phase 6.2 of the build manual asked for. The reported 97.9% diagnosis accuracy is the rule-based-only number; expect it to move once the real fallback is measured.
 - A real Razorpay test-mode payment link hasn't been generated end to end in this environment yet, for the same reason (no live key exercised) — the integration code makes a real REST call and has been reviewed, not stubbed.
-- The Claude-based fallback classifier hasn't been stress-tested against adversarial input.
+- The Gemini-based fallback classifier hasn't been stress-tested against adversarial input.
 - This runs against synthetic data, not a live merchant account.
 - Five secondary per-layer API routes (`/api/diagnose`, `/api/decide`, `/api/compliance`, `/api/circuit-breaker`, `/api/execute`) are scaffolded but not wired up — the real pipeline runs through `lib/batch/run-batch.ts` end to end instead, exposed via `/api/batch`.
 

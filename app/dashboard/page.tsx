@@ -93,7 +93,7 @@ export default function DashboardPage() {
         <h2 className="text-lg font-bold">Diagnosis accuracy</h2>
         <p className="text-sm text-navy-muted">
           Overall {Math.round(diagnosisAccuracy.overall_accuracy * 100)}% on {diagnosisAccuracy.total_records_diagnosed} diagnosed
-          records ({diagnosisAccuracy.seed_version}). {diagnosisAccuracy.claude_fallback.note ?? ""}
+          records ({diagnosisAccuracy.seed_version}). {diagnosisAccuracy.ai_fallback.note ?? ""}
         </p>
         <div className="ledger-card mt-4 overflow-x-auto rounded-md">
           <table className="w-full text-sm">

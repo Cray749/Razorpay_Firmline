@@ -1,13 +1,13 @@
-// lib/classifier/claude-fallback.ts — orchestrates "run the rule-based
-// classifier, escalate to Claude only if confidence is low, log the outcome."
+// lib/classifier/ai-fallback.ts — orchestrates "run the rule-based
+// classifier, escalate to Gemini only if confidence is low, log the outcome."
 // This is the single entry point the batch pipeline calls for diagnosis; it
-// never calls the Anthropic SDK directly (that's lib/claude/client.ts's job
+// never calls the Gemini SDK directly (that's lib/ai/client.ts's job
 // alone) and never bypasses the confidence threshold.
 import type { PaymentFailure, CheckoutAbandonment, B2BReceivable } from "@/data/seed/schema";
 import { classifyPaymentFailure } from "./payment-failures";
 import { classifyCheckoutAbandonment } from "./checkout-abandonment";
 import { classifyB2BReceivable } from "./b2b-receivables";
-import { diagnoseFallback, type DiagnoseFallbackParams } from "@/lib/claude/diagnose-fallback";
+import { diagnoseFallback, type DiagnoseFallbackParams } from "@/lib/ai/diagnose-fallback";
 import {
   needsFallback,
   PAYMENT_FAILURE_ROOT_CAUSES,
@@ -37,16 +37,16 @@ async function withFallback<T extends string>(
         rootCause: fb.rootCause as T,
         confidence: 0.75,
         reasoning: fb.reasoning,
-        source: "claude_fallback",
+        source: "ai_fallback",
       };
     } else {
       // Phase 6.2's contract: never silently guess. Keep the rule-based guess,
       // flag it, and let a human decide.
       final = {
         ...ruleResult,
-        source: "claude_fallback_failed",
+        source: "ai_fallback_failed",
         needsHumanReview: true,
-        reasoning: `${ruleResult.reasoning} — Claude fallback unavailable (${fb.reason}); flagged for human review rather than guessing.`,
+        reasoning: `${ruleResult.reasoning} — AI fallback (Gemini) unavailable (${fb.reason}); flagged for human review rather than guessing.`,
       };
     }
   }

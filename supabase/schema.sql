@@ -67,7 +67,7 @@ create table if not exists b2b_receivables (
 -- ── Audit trail ──────────────────────────────────────────────────────────
 -- Every event from every layer (circuit breaker, diagnosis, decision, each
 -- of the 13 compliance rules, promise-tracker transitions, execution
--- outcomes, Claude API calls) writes one row here.
+-- outcomes, AI model calls) writes one row here.
 
 create table if not exists audit_log (
   id text primary key,
